@@ -11,18 +11,18 @@ import (
 	"fmt"
 )
 
-func GetRSAKey() (*rsa.PrivateKey, *rsa.PublicKey, error) {
-	privKey, err := rsa.GenerateKey(rand.Reader, 4096)
+func GetRSAKey(bits int) (*rsa.PrivateKey, *rsa.PublicKey, error) {
+	privKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error: cannot generate rsa key: %w", err)
+		return nil, nil, fmt.Errorf("error: cannot generate rsa key: %w", err)
 	}
 	return privKey, &privKey.PublicKey, nil
 }
 
-func GetECDSAKey() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
-	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+func GetECDSAKey(curve elliptic.Curve) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
+	privKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error: cannot generate ecdsa key: %w", err)
+		return nil, nil, fmt.Errorf("error: cannot generate ecdsa key: %w", err)
 	}
 	return privKey, &privKey.PublicKey, nil
 }
@@ -30,7 +30,7 @@ func GetECDSAKey() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 func GetED25519Key() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error: cannot generate ed25519 key: %v", err)
+		return nil, nil, fmt.Errorf("error: cannot generate ed25519 key: %v", err)
 	}
 	return privKey, pubKey, nil
 }
@@ -38,7 +38,7 @@ func GetED25519Key() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 func ParseKey(privKey, pubKey []byte) (any, any, error) {
 	parsedPub, err := x509.ParsePKIXPublicKey(pubKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error: cannot parse PKIX public key: %w", err)
+		return nil, nil, fmt.Errorf("error: cannot parse PKIX public key: %w", err)
 	}
 
 	if parsedPriv, err := x509.ParsePKCS8PrivateKey(privKey); err == nil {
@@ -51,5 +51,5 @@ func ParseKey(privKey, pubKey []byte) (any, any, error) {
 		return parsedPriv, parsedPub, nil
 	}
 
-	return nil, nil, errors.New("Error: unknown key type")
+	return nil, nil, errors.New("error: unknown key type")
 }

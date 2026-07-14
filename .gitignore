@@ -1,0 +1,59 @@
+# -------------------------------------------------------------
+# Binaries and Executables
+# -------------------------------------------------------------
+# Compiled application binaries (often placed in a /bin or /dist directory)
+bin/
+dist/
+
+# Root-level or arbitrary compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# -------------------------------------------------------------
+# Test and Coverage Artifacts
+# -------------------------------------------------------------
+# Test binaries generated during 'go test' execution
+*.test
+
+# Code coverage output files and profiling data
+*.out
+*.coverprofile
+*.prof
+profile.cov
+coverage.txt
+
+# -------------------------------------------------------------
+# Go Modules and Workspaces
+# -------------------------------------------------------------
+# Local workspace configuration file (never commit this)
+go.work
+go.work.sum
+
+# Vendor directory (uncomment ONLY if you prefer vendoring over module cache)
+# vendor/
+
+# -------------------------------------------------------------
+# Configuration and Environment Files
+# -------------------------------------------------------------
+# Local configuration files containing production secrets/API keys
+.env
+.env.*
+!.env.example
+config.local.yaml
+config.local.json
+
+# -------------------------------------------------------------
+# OS and Common IDEs (Optional but Recommended)
+# -------------------------------------------------------------
+# macOS specific system files
+.DS_Store
+
+# JetBrains IDEs (GoLand, IntelliJ)
+.idea/
+*.iml
+
+# Visual Studio Code
+.vscode/
