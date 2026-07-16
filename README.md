@@ -24,7 +24,7 @@
 ### From source
 
 ```bash
-git clone https://github.com/yourusername/certman.git
+git clone https://github.com/twasiy/certman.git
 cd certman
 go build -o certman .
 ```
@@ -64,7 +64,7 @@ certman write ca --it
 ### 3. Create an Intermediate CA
 
 ```bash
-certman write inter-ca \
+certman write ica \
   --common-name "My Intermediate CA" \
   --key-type ecdsa-256 \
   --ttl 5y \
@@ -110,18 +110,18 @@ certman verify key --cert ./leaf.cert --key ./leaf_private_key.pem
 
 ## Command Overview
 
-| Command        | Description                                                       |
-|----------------|-------------------------------------------------------------------|
-| `init`         | Initialise the application and master key in the OS keyring.     |
-| `read cert`    | Read a certificate file and print its raw PEM content.           |
-| `read key`     | Read a key file and print its PEM (optionally decrypt).          |
-| `write ca`     | Generate a Root CA certificate and its key pair.                 |
-| `write inter-ca`| Generate an Intermediate CA signed by a parent CA.               |
-| `write leaf`   | Generate a Leaf certificate signed by a parent CA.               |
+| Command        | Description                                                        |
+|----------------|--------------------------------------------------------------------|
+| `init`         | Initialise the application and master key in the OS keyring.       |
+| `read cert`    | Read a certificate file and print its raw PEM content.             |
+| `read key`     | Read a key file and print its PEM (optionally decrypt).            |
+| `write ca`     | Generate a Root CA certificate and its key pair.                   |
+| `write ica`    | Generate an Intermediate CA signed by a parent CA.                 |
+| `write leaf`   | Generate a Leaf certificate signed by a parent CA.                 |
 | `inspect cert` | Display detailed certificate metadata (subject, issuer, SAN, etc.).|
-| `inspect key`  | Display key algorithm, parameters, and optionally validate.      |
-| `verify cert`  | Validate certificate chain, expiration, and DNS/name matching.   |
-| `verify key`   | Check if a private key matches a certificate’s public key.        |
+| `inspect key`  | Display key algorithm, parameters, and optionally validate.        |
+| `verify cert`  | Validate certificate chain, expiration, and DNS/name matching.     |
+| `verify key`   | Check if a private key matches a certificate’s public key.         |
 
 Use `--help` with any command for detailed flags.
 
