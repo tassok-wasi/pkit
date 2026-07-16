@@ -6,6 +6,18 @@ import (
 	"net/url"
 )
 
+type KeyType string
+
+const (
+	RSA_2048   KeyType = "rsa-2048"
+	RSA_4096   KeyType = "rsa-4096"
+	ECDSA_P224 KeyType = "ecdsa-224"
+	ECDSA_P256 KeyType = "ecdsa-256"
+	ECDSA_P384 KeyType = "ecdsa-384"
+	ECDSA_P521 KeyType = "ecdsa-521"
+	ED25519    KeyType = "ed25519"
+)
+
 type KeyPair struct {
 	PrivateKey any
 	PublicKey  any

@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"log"
 	"os"
 )
@@ -18,21 +19,24 @@ const (
 
 // WriteCert saves the certificate bytes into a standard PEM encoded certificate file
 // filePath can be linux path, relative path, absolute path or just file name
-func WriteCert(filePath string, certBytes []byte) {
+func WriteCert(filePath string, certBytes []byte) error {
 	// Certificates are public data, standard 0644 permissions are fine
-	write(filePath, "CERTIFICATE", certBytes, 0o644)
+	return write(filePath, "CERTIFICATE", certBytes, 0o644)
 }
 
 // WriteKey takes a concrete key (e.g., *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey)
 // and dynamically handles legacy or PKCS#8 formatting.
-func WriteKey(filePath string, key any, keyType KeyType, usePKCS8 bool) {
-	if keyType == PUBLIC {
+func WriteKey(filePath string, key any, keyType KeyType, usePKCS8 bool, usePKIX bool) error {
+	if keyType == PUBLIC && usePKIX {
 		pubBytes, err := x509.MarshalPKIXPublicKey(key)
 		if err != nil {
-			log.Fatalf("Error: cannot marshal public key: %v", err)
+			return fmt.Errorf("cannot marshal public key: %v", err)
 		}
-		write(filePath, "PUBLIC KEY", pubBytes, 0o644)
-		return
+		return write(filePath, "PUBLIC KEY", pubBytes, 0o644)
+	}
+	if keyType == PUBLIC && !usePKIX {
+		pubBytes := x509.MarshalPKCS1PublicKey(key.(*rsa.PublicKey))
+		return write(filePath, "RSA PUBLIC KEY", pubBytes, 0o644)
 	}
 
 	// For PRIVATE keys:
@@ -44,7 +48,7 @@ func WriteKey(filePath string, key any, keyType KeyType, usePKCS8 bool) {
 		blockType = "PRIVATE KEY"
 		privBytes, err = x509.MarshalPKCS8PrivateKey(key)
 		if err != nil {
-			log.Fatalf("Error: cannot marshal to PKCS#8: %v", err)
+			return fmt.Errorf("cannot marshal to PKCS#8: %v", err)
 		}
 	} else {
 		switch k := key.(type) {
@@ -55,27 +59,30 @@ func WriteKey(filePath string, key any, keyType KeyType, usePKCS8 bool) {
 			blockType = "EC PRIVATE KEY"
 			privBytes, err = x509.MarshalECPrivateKey(k)
 			if err != nil {
-				log.Fatalf("Error: cannot marshal EC key: %v", err)
+				return fmt.Errorf("cannot marshal EC key: %v", err)
 			}
 		default:
 			blockType = "PRIVATE KEY"
 			privBytes, err = x509.MarshalPKCS8PrivateKey(key)
 			if err != nil {
-				log.Fatalf("Error: cannot marshal to PKCS#8: %v", err)
+				return fmt.Errorf("cannot marshal to PKCS#8: %v", err)
 			}
 		}
 	}
 
-	write(filePath, blockType, privBytes, 0o600)
+	return write(filePath, blockType, privBytes, 0o600)
 }
 
 // write is a generic helper to write PEM blocks to disk
-func write(filePath string, blockType string, bytes []byte, perm os.FileMode) {
-	path := JoinHomeDir(filePath)
+func write(filePath string, blockType string, bytes []byte, perm os.FileMode) error {
+	path, err := JoinHomeDir(filePath)
+	if err != nil {
+		return err
+	}
 
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
-		log.Fatalf("Error: cannot open %s for writing: %v", path, err)
+		return fmt.Errorf("cannot open %s for writing: %v", path, err)
 	}
 	defer file.Close()
 
@@ -84,8 +91,9 @@ func write(filePath string, blockType string, bytes []byte, perm os.FileMode) {
 		Bytes: bytes,
 	})
 	if err != nil {
-		log.Fatalf("Error: cannot write to the file : %v", err)
+		return fmt.Errorf("cannot write to the file : %v", err)
 	}
 
-	log.Printf("Success: successfully created %s\n", path)
+	log.Printf("successfully created %s\n", path)
+	return nil
 }

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"certman/app/utils"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -9,6 +8,8 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+
+	"certman/app/utils"
 )
 
 // GetBaseTemplate generates the basic certificate scaffolding.
@@ -23,29 +24,31 @@ func GetBaseTemplate(subject pkix.Name, serialNumber *big.Int, ttlInHour int, is
 	}
 }
 
-func GetCA(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPair) (*x509.Certificate, error) {
-	serialNumber := utils.GetSerialNumber()
+func GetCA(subject pkix.Name, ttlInHour int, keyPair *KeyPair) (*x509.Certificate, error) {
+	serialNumber, err := utils.GetSerialNumber()
+	if err != nil {
+		return nil, err
+	}
 
 	template := GetBaseTemplate(subject, serialNumber, ttlInHour, true)
 	template.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageCRLSign
-	template.DNSNames = san.DNSNames
-	template.EmailAddresses = san.EmailAddresses
-	template.IPAddresses = san.IPAddresses
-	template.URIs = san.URIs
 
 	// Self-signed CA: Subject Key ID and Authority Key ID match
-	skid := generateSKID(keyPair.PublicKey)
+	skid, err := generateSKID(keyPair.PublicKey)
+	if err != nil {
+		return nil, err
+	}
 	template.SubjectKeyId = skid
 	template.AuthorityKeyId = skid
 
 	caBytes, err := x509.CreateCertificate(rand.Reader, template, template, keyPair.PublicKey, keyPair.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error: cannot generate CA certificate: %w", err)
+		return nil, fmt.Errorf("cannot generate CA certificate: %w", err)
 	}
 
 	caCert, err := x509.ParseCertificate(caBytes)
 	if err != nil {
-		return nil, fmt.Errorf("error: cannot parse CA certificate: %w", err)
+		return nil, fmt.Errorf("cannot parse CA certificate: %w", err)
 	}
 
 	return caCert, nil
@@ -53,10 +56,13 @@ func GetCA(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPair) (*x509.
 
 func GetIntermediate(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPair, parent *Certificate) (*x509.Certificate, error) {
 	if parent == nil || !parent.Cert.IsCA {
-		return nil, errors.New("error: invalid parent certificate: parent must be a valid CA")
+		return nil, errors.New("invalid parent certificate: parent must be a valid CA")
 	}
 
-	serialNumber := utils.GetSerialNumber()
+	serialNumber, err := utils.GetSerialNumber()
+	if err != nil {
+		return nil, err
+	}
 
 	template := GetBaseTemplate(subject, serialNumber, ttlInHour, true)
 
@@ -71,17 +77,20 @@ func GetIntermediate(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPai
 	template.URIs = san.URIs
 
 	// Key Identifiers
-	template.SubjectKeyId = generateSKID(keyPair.PublicKey)
+	template.SubjectKeyId, err = generateSKID(keyPair.PublicKey)
+	if err != nil {
+		return nil, err
+	}
 	template.AuthorityKeyId = parent.Cert.SubjectKeyId
 
 	interBytes, err := x509.CreateCertificate(rand.Reader, template, parent.Cert, keyPair.PublicKey, parent.Keys.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error: cannot generate intermediate certificate: %w", err)
+		return nil, fmt.Errorf("cannot generate intermediate certificate: %w", err)
 	}
 
 	interCaCert, err := x509.ParseCertificate(interBytes)
 	if err != nil {
-		return nil, fmt.Errorf("error: cannot parse intermediate certificate: %w", err)
+		return nil, fmt.Errorf("cannot parse intermediate certificate: %w", err)
 	}
 
 	return interCaCert, nil
@@ -89,10 +98,13 @@ func GetIntermediate(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPai
 
 func GetLeaf(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPair, parent *Certificate) (*x509.Certificate, error) {
 	if parent == nil || !parent.Cert.IsCA {
-		return nil, fmt.Errorf("error: invalid parent certificate: leaf must be signed by a CA/Intermediate")
+		return nil, fmt.Errorf("invalid parent certificate: leaf must be signed by a CA/Intermediate")
 	}
 
-	serialNumber := utils.GetSerialNumber()
+	serialNumber, err := utils.GetSerialNumber()
+	if err != nil {
+		return nil, err
+	}
 
 	template := GetBaseTemplate(subject, serialNumber, ttlInHour, false)
 	template.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
@@ -103,17 +115,20 @@ func GetLeaf(subject pkix.Name, san SANs, ttlInHour int, keyPair *KeyPair, paren
 	template.URIs = san.URIs
 
 	// Key Identifiers
-	template.SubjectKeyId = generateSKID(keyPair.PublicKey)
+	template.SubjectKeyId, err = generateSKID(keyPair.PublicKey)
+	if err != nil {
+		return nil, err
+	}
 	template.AuthorityKeyId = parent.Cert.SubjectKeyId
 
 	leafBytes, err := x509.CreateCertificate(rand.Reader, template, parent.Cert, keyPair.PublicKey, parent.Keys.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("error: cannot generate leaf certificate: %w", err)
+		return nil, fmt.Errorf("cannot generate leaf certificate: %w", err)
 	}
 
 	leafCert, err := x509.ParseCertificate(leafBytes)
 	if err != nil {
-		return nil, fmt.Errorf("error: cannot parse leaf certificate: %w", err)
+		return nil, fmt.Errorf("cannot parse leaf certificate: %w", err)
 	}
 
 	return leafCert, nil
