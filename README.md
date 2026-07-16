@@ -14,7 +14,7 @@
 - **Inspect** certificates and keys with detailed cryptographic metadata.
 - **Verify** certificate chains and key‑pair consistency.
 - **Encrypt** private keys at rest using AES‑GCM with a master key stored in your OS keyring (Linux, macOS, Windows).
-- **Deterministic file organisation** – certificates are stored under `~/certman/certificates/`.
+- **Deterministic file organization** – certificates are stored under `~/certman/certificates/`.
 - **Read/Write** certificates and keys in PEM format.
 
 ---
