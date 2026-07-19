@@ -158,6 +158,93 @@ func ParseExtKeyUsages(usages []string) []x509.ExtKeyUsage {
 	return out
 }
 
+func MarshalKeyUsage(usage x509.KeyUsage) []string {
+	var out []string
+	m := map[x509.KeyUsage]string{
+		x509.KeyUsageDigitalSignature:  "digital-signature",
+		x509.KeyUsageContentCommitment: "content-commitment",
+		x509.KeyUsageKeyEncipherment:   "key-encipherment",
+		x509.KeyUsageDataEncipherment:  "data-encipherment",
+		x509.KeyUsageKeyAgreement:      "key-agreement",
+		x509.KeyUsageCertSign:          "cert-sign",
+		x509.KeyUsageCRLSign:           "crl-sign",
+		x509.KeyUsageEncipherOnly:      "encipher-only",
+		x509.KeyUsageDecipherOnly:      "decipher-only",
+	}
+
+	for ku, name := range m {
+		if usage&ku > 0 {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+func MarshalExtKeyUsages(extUsages []x509.ExtKeyUsage) []string {
+	var out []string
+	m := map[x509.ExtKeyUsage]string{
+		x509.ExtKeyUsageAny:             "any",
+		x509.ExtKeyUsageServerAuth:      "server-auth",
+		x509.ExtKeyUsageClientAuth:      "client-auth",
+		x509.ExtKeyUsageCodeSigning:     "code-signing",
+		x509.ExtKeyUsageEmailProtection: "email-protection",
+		x509.ExtKeyUsageTimeStamping:    "time-stamping",
+		x509.ExtKeyUsageOCSPSigning:     "ocsp-signing",
+	}
+
+	for _, eku := range extUsages {
+		if name, exists := m[eku]; exists {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// ParseRevocationReason maps a single string input to an RFC 5280 integer code.
+func ParseRevocationReason(reason string) (int, error) {
+	m := map[string]int{
+		"unspecified":            0,
+		"key-compromise":         1,
+		"ca-compromise":          2,
+		"affiliation-changed":    3,
+		"superseded":             4,
+		"cessation-of-operation": 5,
+		"certificate-hold":       6,
+		"remove-from-crl":        8,
+		"privilege-withdrawn":    9,
+		"a-a-compromise":         10,
+	}
+
+	cleaned := strings.ToLower(strings.TrimSpace(reason))
+	if code, exists := m[cleaned]; exists {
+		return code, nil
+	}
+
+	return 0, errors.New("invalid revocation reason: " + reason)
+}
+
+// MarshalRevocationReason converts a single integer code back to its string representation.
+func MarshalRevocationReason(code int) (string, error) {
+	m := map[int]string{
+		0:  "unspecified",
+		1:  "key-compromise",
+		2:  "ca-compromise",
+		3:  "affiliation-changed",
+		4:  "superseded",
+		5:  "cessation-of-operation",
+		6:  "certificate-hold",
+		8:  "remove-from-crl",
+		9:  "privilege-withdrawn",
+		10: "a-a-compromise",
+	}
+
+	if name, exists := m[code]; exists {
+		return name, nil
+	}
+
+	return "", errors.New("unknown revocation code")
+}
+
 var durationRegex = regexp.MustCompile(`^(\d+)([hdy])$`)
 
 // ParseTTLToHours parses duration strings like "1000h", "30d", "10y" into total hours.

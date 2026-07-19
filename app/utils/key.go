@@ -6,8 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
-	"errors"
 	"fmt"
 )
 
@@ -33,23 +31,4 @@ func GetED25519Key() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 		return nil, nil, fmt.Errorf("cannot generate ed25519 key: %v", err)
 	}
 	return privKey, pubKey, nil
-}
-
-func ParseKey(privKey, pubKey []byte) (any, any, error) {
-	parsedPub, err := x509.ParsePKIXPublicKey(pubKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot parse PKIX public key: %w", err)
-	}
-
-	if parsedPriv, err := x509.ParsePKCS8PrivateKey(privKey); err == nil {
-		return parsedPriv, parsedPub, nil
-	}
-	if parsedPriv, err := x509.ParsePKCS1PrivateKey(privKey); err == nil {
-		return parsedPriv, parsedPub, nil
-	}
-	if parsedPriv, err := x509.ParseECPrivateKey(privKey); err == nil {
-		return parsedPriv, parsedPub, nil
-	}
-
-	return nil, nil, errors.New("unknown key type")
 }

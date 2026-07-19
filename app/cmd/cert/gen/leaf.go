@@ -1,4 +1,4 @@
-package cmd
+package gen
 
 import (
 	"context"
@@ -28,21 +28,21 @@ type LeafCmd struct {
 	OrganizationalUnit []string `name:"ou" help:"OrganizationalUnit names of the Certificate."`
 	Locality           []string `name:"locality" short:"l" help:"Locality names of the Certificate."`
 	Province           []string `name:"st" help:"Province names of the Certificate."`
-	StreetAddress      []string `name:"addr" help:"StreetAddress names of the Certificate"`
+	StreetAddress      []string `name:"addr" help:"StreetAddress names of the Certificate."`
 	PostalCode         []string `name:"zip" help:"PostalCode of the Certificate."`
-	KeyType            string   `name:"algo" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ecdsa-256" help:"key-type specifies the Key algorithm will be used to create the keys and sign the Certificate."`
+	KeyType            string   `name:"algo" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ecdsa-256" help:"Key algorithm used to create the keys and sign the Certificate."`
 	TTL                string   `name:"ttl" short:"t" help:"Time-To-Live of the certificate (e.g., 1000h, 30d, 10y)." default:"8760h"`
 	DNSNames           []string `name:"dns" help:"DNSNames of the Certificate."`
-	EmailAddresses     []string `name:"email" help:"EmailAddresses of the Certificate"`
+	EmailAddresses     []string `name:"email" help:"EmailAddresses of the Certificate."`
 	IPAddresses        []string `name:"ip" help:"IPAddresses of the Certificate."`
-	URIs               []string `name:"uri" help:"URIs of the Certificate"`
-	IT                 bool     `name:"it" short:"i" help:"Bypass the flags and provide input via interactive prompt"`
+	URIs               []string `name:"uri" help:"URIs of the Certificate."`
+	IT                 bool     `name:"it" short:"i" help:"Bypass the flags and provide input via interactive prompt."`
 
-	ISerialNumber string `name:"isn" help:"Serial Number of the Issuer Certificate. Either one can be selected."`
-	ICommonName   string `name:"icn" help:"Common Name of the Issuer Certificate. Either one can be selected"`
+	ISerialNumber string `name:"isn" xor:"issuer" help:"Serial Number of the Issuer Certificate."`
+	ICommonName   string `name:"icn" xor:"issuer" help:"Common Name of the Issuer Certificate."`
 
-	KeyUsages    []string `name:"ku" help:"Custom key usages (comma-separated or multiple flags). e.g: digital-signature, key-encipherment"`
-	ExtKeyUsages []string `name:"eku" help:"Custom extended key usages (comma-separated or multiple flags). e.g: server-auth, client-auth"`
+	KeyUsages    []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Custom key usages (comma-separated or multiple flags)."`
+	ExtKeyUsages []string `name:"eku" enum:"any,server-auth,client-auth,code-signing,email-protection,time-stamping,ocsp-signing" help:"Custom extended key usages (comma-separated or multiple flags)."`
 }
 
 func LeafPrompt(initial *LeafCmd) (*LeafCmd, error) {
@@ -190,22 +190,22 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	var issuerCert *x509.Certificate
 	var keyName string
 	if lc.ISerialNumber != "" && lc.ICommonName == "" {
-		dbCert, err := query.GetCertBySN(ctx, lc.ISerialNumber)
+		dbCert, err := query.GetCertificateBySN(ctx, lc.ISerialNumber)
 		if err != nil {
 			return fmt.Errorf("failed to get Certificate: %w", err)
 		}
 		keyName = dbCert.KeyName
-		issuerCert, err = ParseCertificate([]byte(dbCert.CertificatePem))
+		issuerCert, err = utils.ParseCertificate([]byte(dbCert.CertificatePem))
 		if err != nil {
 			return err
 		}
 	} else if lc.ISerialNumber == "" && lc.ICommonName != "" {
-		dbCert, err := query.GetCertByCN(ctx, lc.ICommonName)
+		dbCert, err := query.GetCertificateByCN(ctx, lc.ICommonName)
 		if err != nil {
 			return fmt.Errorf("failed to get Certificate: %w", err)
 		}
 		keyName = dbCert.KeyName
-		issuerCert, err = ParseCertificate([]byte(dbCert.CertificatePem))
+		issuerCert, err = utils.ParseCertificate([]byte(dbCert.CertificatePem))
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 		return fmt.Errorf("failed to get key: %w", err)
 	}
 
-	issuerPrivateKey, _, err := ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
+	issuerPrivateKey, _, err := utils.ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	// ----------------------------- WRITING TO THE DATABASE -------------------------------------
 
-	privBlobPem, pubPem, err := ReturnPrivPubPem(keyPair.PrivateKey, keyPair.PublicKey)
+	privBlobPem, pubPem, err := utils.ReturnPrivPubPem(keyPair.PrivateKey, keyPair.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 		return fmt.Errorf("transaction failed, data rolled back: %w", err)
 	}
 
-	log.Println("Success: successfully Created Certificate and it's Key Pair:")
+	log.Println("Success: successfully Created Certificate.")
 
 	return nil
 }

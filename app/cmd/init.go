@@ -1,14 +1,11 @@
 package cmd
 
 import (
-	_ "embed"
+	"certman/app/utils"
+	_db_ "certman/db"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"certman/app/utils"
-
-	_db_ "certman/db"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -22,14 +19,31 @@ func (ic *InitCmd) Run() error {
 	}
 
 	appDataPath := filepath.Join(homDir, ".certman")
+
+	dbPath := filepath.Join(appDataPath, "certman.db")
+	if _, err := os.Stat(dbPath); err == nil {
+		_, keyErr := utils.GetMasterKey()
+		if keyErr == nil {
+			return fmt.Errorf("application is already initialized. Use 'certman' commands directly")
+		}
+		fmt.Println("Database exists but master key not found. Recreating master key...")
+		return utils.InitMasterKey()
+	}
+
+	fmt.Printf("Initializing database at: %s\n", appDataPath)
 	if err := _db_.InitializeDB(appDataPath); err != nil {
 		return fmt.Errorf("Initialization failed: %w", err)
 	}
 
 	err = utils.InitMasterKey()
 	if err != nil {
+		if err.Error() == "application is already initialized with a master key" {
+			fmt.Println("Master key already exists")
+			return nil
+		}
 		return err
 	}
 
+	fmt.Println("Application initialized successfully!")
 	return nil
 }

@@ -1,6 +1,10 @@
-package cmd
+package gen
 
 import (
+	"certman/app/domain"
+	"certman/app/utils"
+	_db_ "certman/db"
+	"certman/db/base"
 	"context"
 	"crypto/x509/pkix"
 	"database/sql"
@@ -9,11 +13,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-
-	"certman/app/domain"
-	"certman/app/utils"
-	_db_ "certman/db"
-	"certman/db/base"
 
 	"charm.land/huh/v2"
 )
@@ -25,13 +24,13 @@ type CACmd struct {
 	OrganizationalUnit []string `name:"ou" help:"OrganizationalUnit names of the Certificate."`
 	Locality           []string `name:"locality" short:"l" help:"Locality names of the Certificate."`
 	Province           []string `name:"st" help:"Province names of the Certificate."`
-	StreetAddress      []string `name:"addr" help:"StreetAddress names of the Certificate"`
+	StreetAddress      []string `name:"addr" help:"StreetAddress names of the Certificate."`
 	PostalCode         []string `name:"zip" help:"PostalCode of the Certificate."`
-	KeyType            string   `name:"algo" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"key-type specifies the Key will be used to sign the Certificate."`
+	KeyType            string   `name:"algo" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"Key algorithm used to sign the Certificate."`
 	TTL                string   `name:"ttl" short:"t" help:"Time-To-Live of the certificate (e.g., 1000h, 30d, 10y)." default:"86400h"`
-	IT                 bool     `name:"it" short:"i" help:"Bypass the flags and provide input via interactive prompt"`
+	IT                 bool     `name:"it" short:"i" help:"Bypass the flags and provide input via interactive prompt."`
 
-	KeyUsages []string `name:"ku" help:"Custom key usages (comma-separated or multiple flags). e.g: cert-sign, crl-sign"`
+	KeyUsages []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Custom key usages (comma-separated or multiple flags)."`
 }
 
 func CAPrompt(initial *CACmd) (*CACmd, error) {
@@ -179,7 +178,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 
 	// ------------------------- WRITING TO THE DATABASE ------------------------------
 
-	privBlobPem, pubPem, err := ReturnPrivPubPem(keyPair.PrivateKey, keyPair.PublicKey)
+	privBlobPem, pubPem, err := utils.ReturnPrivPubPem(keyPair.PrivateKey, keyPair.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -221,7 +220,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 		return fmt.Errorf("transaction failed, data rolled back: %w", err)
 	}
 
-	log.Println("Success: successfully Created Certificate and it's Key Pair.")
+	log.Println("Success: successfully Created Certificate.")
 
 	return nil
 }
