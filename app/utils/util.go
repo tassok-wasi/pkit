@@ -73,7 +73,7 @@ func GetSerialNumber() (*big.Int, error) {
 	sNumLim := new(big.Int).Lsh(big.NewInt(1), 128)
 	sNum, err := rand.Int(rand.Reader, sNumLim)
 	if err != nil {
-		return nil, fmt.Errorf("cannot generate serial number: %w", err)
+		return nil, fmt.Errorf("failed to generate serial number: %w", err)
 	}
 	return sNum, nil
 }
@@ -82,7 +82,7 @@ func JoinHomeDir(filePath string) (string, error) {
 	if strings.HasPrefix(filePath, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("cannot get home directory: %w", err)
+			return "", fmt.Errorf("failed to get home directory: %w", err)
 		}
 		resolvedPath := filepath.Join(home, filePath[2:])
 		return resolvedPath, nil
@@ -281,7 +281,7 @@ func EncodeToPem(bytes []byte, blockType string) (string, error) {
 	})
 
 	if pemBytes == nil {
-		return "", errors.New("cannot encode to pem")
+		return "", errors.New("failed to encode to pem")
 	}
 
 	return string(pemBytes), nil
@@ -333,7 +333,7 @@ func ParseCertificate(pemBytes []byte) (*x509.Certificate, error) {
 
 	cert, err := x509.ParseCertificate(certBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed parse Certificate: %w", err)
+		return nil, fmt.Errorf("failed to parse Certificate: %w", err)
 	}
 	return cert, nil
 }
@@ -434,7 +434,7 @@ func ParseCRL(pemBytes []byte) (*x509.RevocationList, error) {
 
 	crl, err := x509.ParseRevocationList(crlBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed parse Revocation List: %w", err)
+		return nil, fmt.Errorf("failed to parse Revocation List: %w", err)
 	}
 	return crl, nil
 }
@@ -505,4 +505,29 @@ func GetSignatureAlgorithm(keyType string) (x509.SignatureAlgorithm, error) {
 	default:
 		return x509.UnknownSignatureAlgorithm, fmt.Errorf("unsupported or invalid key type: %s", keyType)
 	}
+}
+
+func ResolveDestinationPath(inputPath, defaultName, defaultExt string) (string, error) {
+	defaultFilename := SanitizeFilename(defaultName, "exported_item") + defaultExt
+	if inputPath == "" {
+		return defaultFilename, nil
+	}
+
+	resolvedPath, err := JoinHomeDir(inputPath)
+	if err != nil {
+		return "", err
+	}
+
+	if fi, err := os.Stat(resolvedPath); err == nil {
+		if fi.IsDir() {
+			return filepath.Join(resolvedPath, defaultFilename), nil
+		}
+		return resolvedPath, nil
+	}
+
+	if strings.HasSuffix(inputPath, "/") || strings.HasSuffix(inputPath, "\\") || filepath.Ext(resolvedPath) == "" {
+		return filepath.Join(resolvedPath, defaultFilename), nil
+	}
+
+	return resolvedPath, nil
 }

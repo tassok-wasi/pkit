@@ -19,18 +19,18 @@ const (
 func InitMasterKey() error {
 	_, err := keyring.Get(serviceName, accountName)
 	if err == nil {
-		return errors.New("application is already initialized with a master key")
+		return errors.New("Application is already initialized with a master key")
 	}
 
 	keyBytes := make([]byte, 32)
 	if _, err := rand.Read(keyBytes); err != nil {
-		return fmt.Errorf("cannot generate secure bytes: %w", err)
+		return fmt.Errorf("failed to generate secure bytes: %w", err)
 	}
 	masterKeyHex := hex.EncodeToString(keyBytes)
 
 	err = keyring.Set(serviceName, accountName, masterKeyHex)
 	if err != nil {
-		return fmt.Errorf("cannot store key in OS keyring: %w", err)
+		return fmt.Errorf("failed to store key in OS keyring: %w", err)
 	}
 	return nil
 }
@@ -40,9 +40,9 @@ func GetMasterKey() ([]byte, error) {
 	keyHex, err := keyring.Get(serviceName, accountName)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
-			return nil, errors.New("app not initialized. Please run 'certman init' first")
+			return nil, errors.New("App not initialized. Please run 'certman init' first")
 		}
-		return nil, fmt.Errorf("cannot fetch key from OS keyring: %v", err)
+		return nil, fmt.Errorf("failed to fetch key from OS keyring: %v", err)
 	}
 
 	keyBytes, err := hex.DecodeString(keyHex)

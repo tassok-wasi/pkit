@@ -22,7 +22,7 @@ type InspectCmd struct {
 func (ic *InspectCmd) Run(ctx context.Context, query base.Querier) error {
 	key, err := query.GetKeyByID(ctx, int64(ic.ID))
 	if err != nil {
-		return fmt.Errorf("failed to get Key from db: %w", err)
+		return fmt.Errorf("failed to fetch key from database: %w", err)
 	}
 
 	privateKey, publicKey, err := utils.ParseKeys([]byte(key.PrivateKeyPem), []byte(key.PublicKeyPem))

@@ -15,7 +15,7 @@ type InitCmd struct{}
 func (ic *InitCmd) Run() error {
 	homDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("could not find user home directory: %w", err)
+		return fmt.Errorf("failed to find user home directory: %w", err)
 	}
 
 	appDataPath := filepath.Join(homDir, ".certman")
@@ -37,7 +37,7 @@ func (ic *InitCmd) Run() error {
 
 	err = utils.InitMasterKey()
 	if err != nil {
-		if err.Error() == "application is already initialized with a master key" {
+		if err.Error() == "Application is already initialized with a master key" {
 			fmt.Println("Master key already exists")
 			return nil
 		}

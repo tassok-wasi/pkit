@@ -44,18 +44,18 @@ certman p12 convert <p12> --to pem
 
 ### For `certificate`:
 ```
-certificate diff <cert1> <cert2>
-certificate merge <certs...> --out <merged>
-certificate rotate <cert> [--days] [--force]
+certificate diff <cert1> <cert2> // this will be implemented 
+certificate merge <certs...> --out <merged> this will be implemented
+certificate rotate <cert> [--days] [--force] // this will be implemented
 certificate watch <cert> [--expiry-days] [--webhook]
-certificate format <cert> --to <der|pem|pkcs12>
-certificate validate <cert> [--date] [--ocsp] [--crl]
+certificate format <cert> --to <der|pem|pkcs12>  // this will go to the export command alongside with the pem and der
+certificate validate <cert> [--date] [--ocsp] [--crl] // this will be implemented
 ```
 
 ### For `key`:
 ```
 key generate [--rsa|--ecdsa|--ed25519] [--bits] [--curve]
-key convert <key> --to <pkcs1|pkcs8|ssh>
+key convert <key> --to <pkcs1|pkcs8|ssh> // this will go under export command
 key passphrase <key> [--add|--remove|--change]
 key ssh <key> [--authorized-keys] [--known-hosts]
 key protect <key> --hsm <slot> OR --tpm

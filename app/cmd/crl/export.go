@@ -14,14 +14,14 @@ import (
 
 type ExportCmd struct {
 	ID     int64  `arg:"" help:"ID of the CRL to Export."`
-	Path   string `name:"path" short:"p" type:"path" help:"Path to export the file. [file name must be omitted]"`
+	Path   string `name:"path" short:"p" help:"Destination directory or file path."`
 	Format string `name:"format" short:"f" default:"pem" help:"Specific format to export (e.g., pem, der)"`
 }
 
 func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 	crl, err := query.GetCRLByID(ctx, ec.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get CRL from db: %w", err)
+		return fmt.Errorf("failed to fetch CRL from database: %w", err)
 	}
 
 	format := strings.ToLower(strings.TrimSpace(ec.Format))
@@ -49,22 +49,20 @@ func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 		return fmt.Errorf("unsupported format '%s': expected 'pem' or 'der'", ec.Format)
 	}
 
-	var outputDir string
-	if ec.Path != "" {
-		outputDir, err = utils.JoinHomeDir(ec.Path)
-		if err != nil {
-			return fmt.Errorf("failed to resolve output path: %w", err)
-		}
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("failed to create target directory: %w", err)
+	crlFilePath, err := utils.ResolveDestinationPath(ec.Path, crl.Name, ext)
+	if err != nil {
+		return fmt.Errorf("failed to resolve target path: %w", err)
+	}
+
+	targetDir := filepath.Dir(crlFilePath)
+	if targetDir != "." && targetDir != "" {
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
 		}
 	}
 
-	filename := utils.SanitizeFilename(crl.Name, "exported_crl") + ext
-	crlFilePath := filepath.Join(outputDir, filename)
-
 	if err := os.WriteFile(crlFilePath, data, 0o644); err != nil {
-		return fmt.Errorf("could not write to file %s: %w", crlFilePath, err)
+		return fmt.Errorf("failed to write to file %s: %w", crlFilePath, err)
 	}
 
 	fmt.Printf("Successfully exported CRL to: %s\n", crlFilePath)

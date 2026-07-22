@@ -9,99 +9,131 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type ExportCmd struct {
-	ID     int    `arg:"" help:"ID of the Key to be Export."`
-	Path   string `name:"path" short:"p" type:"path" help:"Path to export the file. [file name must be omitted]"`
-	Format string `name:"format" short:"f" help:"Specific format to export (e.g.,pem,der)"`
-	Blob   bool   `name:"blob" short:"b" help:"If selected private key will be exported as encrypted blob encoded into PEM."`
+	ID     int64  `arg:"" help:"ID of the Key pair to export."`
+	Path   string `name:"path" short:"p" help:"Destination directory or base file path."`
+	Format string `name:"format" short:"f" default:"pem" help:"Specific format to export (e.g., pem, der)"`
+	Blob   bool   `name:"blob" short:"b" help:"If selected, private key will be exported as an encrypted blob."`
 }
 
 func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
-	key, err := query.GetKeyByID(ctx, int64(ec.ID))
+	key, err := query.GetKeyByID(ctx, ec.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get key from db: %w", err)
+		return fmt.Errorf("failed to fetch key from database: %w", err)
+	}
+
+	format := strings.ToLower(strings.TrimSpace(ec.Format))
+	if format == "" {
+		format = "pem"
 	}
 
 	ext := ".pem"
-	if ec.Format == "der" {
+	if format == "der" {
 		ext = ".der"
+	} else if format != "pem" {
+		return fmt.Errorf("unsupported format '%s': expected 'pem' or 'der'", ec.Format)
 	}
 
-	var tempPath string
-	if ec.Path != "" {
-		tempPath, err = utils.JoinHomeDir(ec.Path)
-		if err != nil {
-			return err
+	privKeyFilePath, pubKeyFilePath, err := resolveKeyDestinationPaths(ec.Path, key.Name, ext)
+	if err != nil {
+		return fmt.Errorf("failed to resolve output path: %w", err)
+	}
+
+	targetDir := filepath.Dir(privKeyFilePath)
+	if targetDir != "." && targetDir != "" {
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
 		}
 	}
-	privKeyFilePath := filepath.Join(tempPath,
-		utils.ToSnakeCase(
-			utils.SanitizeFilename(key.Name, "exported_private_key"))+"_private_key"+ext,
-	)
-	pubKeyFilePath := filepath.Join(tempPath,
-		utils.ToSnakeCase(
-			utils.SanitizeFilename(key.Name, "exported_public_key"))+"_public_key"+ext,
-	)
 
-	if ec.Format == "pem" {
+	var privBytes, pubBytes []byte
+
+	if format == "pem" {
 		if !ec.Blob {
 			decryptedPrivKey, err := utils.DecryptPrivKey([]byte(key.PrivateKeyPem))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to decrypt private key: %w", err)
 			}
-			privPemBytes := pem.EncodeToMemory(&pem.Block{
+			privBytes = pem.EncodeToMemory(&pem.Block{
 				Type:  "PRIVATE KEY",
 				Bytes: decryptedPrivKey,
 			})
-			err = os.WriteFile(privKeyFilePath, privPemBytes, 0o600)
-			if err != nil {
-				return fmt.Errorf("failed to write private key: %w", err)
-			}
 		} else {
-			err = os.WriteFile(privKeyFilePath, []byte(key.PrivateKeyPem), 0o600)
-			if err != nil {
-				return fmt.Errorf("failed to write private key: %w", err)
-			}
+			privBytes = []byte(key.PrivateKeyPem)
 		}
-
-		err = os.WriteFile(pubKeyFilePath, []byte(key.PublicKeyPem), 0o644)
-		if err != nil {
-			return fmt.Errorf("failed to write public key: %w", err)
-		}
+		pubBytes = []byte(key.PublicKeyPem)
 
 	} else {
-
 		if !ec.Blob {
 			decryptedPrivKey, err := utils.DecryptPrivKey([]byte(key.PrivateKeyPem))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to decrypt private key: %w", err)
 			}
-			err = os.WriteFile(privKeyFilePath, decryptedPrivKey, 0o600)
-			if err != nil {
-				return fmt.Errorf("failed to write private key: %w", err)
-			}
+			privBytes = decryptedPrivKey
 		} else {
 			privBlock, _ := pem.Decode([]byte(key.PrivateKeyPem))
 			if privBlock == nil {
-				return errors.New("failed to decode private key")
+				return errors.New("failed to decode private key PEM into DER")
 			}
-			err = os.WriteFile(privKeyFilePath, privBlock.Bytes, 0o600)
-			if err != nil {
-				return fmt.Errorf("failed to write private key: %w", err)
-			}
+			privBytes = privBlock.Bytes
 		}
 
 		pubBlock, _ := pem.Decode([]byte(key.PublicKeyPem))
 		if pubBlock == nil {
-			return errors.New("failed to decode public key")
+			return errors.New("failed to decode public key PEM into DER")
 		}
-		err = os.WriteFile(pubKeyFilePath, pubBlock.Bytes, 0o644)
-		if err != nil {
-			return fmt.Errorf("failed to write public key: %w", err)
-		}
+		pubBytes = pubBlock.Bytes
 	}
 
+	if err := os.WriteFile(privKeyFilePath, privBytes, 0o600); err != nil {
+		return fmt.Errorf("failed to write private key to %s: %w", privKeyFilePath, err)
+	}
+
+	if err := os.WriteFile(pubKeyFilePath, pubBytes, 0o644); err != nil {
+		return fmt.Errorf("failed to write public key to %s: %w", pubKeyFilePath, err)
+	}
+
+	fmt.Printf("Successfully exported Private Key to: %s\n", privKeyFilePath)
+	fmt.Printf("Successfully exported Public Key to:  %s\n", pubKeyFilePath)
 	return nil
+}
+
+// Helper to calculate output file paths for key pairs
+func resolveKeyDestinationPaths(inputPath, keyName, ext string) (string, string, error) {
+	sanitizedBase := utils.ToSnakeCase(utils.SanitizeFilename(keyName, "exported_key"))
+
+	if inputPath == "" {
+		privPath := sanitizedBase + "_private_key" + ext
+		pubPath := sanitizedBase + "_public_key" + ext
+		return privPath, pubPath, nil
+	}
+
+	resolvedPath, err := utils.JoinHomeDir(inputPath)
+	if err != nil {
+		return "", "", err
+	}
+
+	fi, err := os.Stat(resolvedPath)
+	isDir := err == nil && fi.IsDir()
+
+	if isDir || strings.HasSuffix(inputPath, "/") || strings.HasSuffix(inputPath, "\\") {
+		privPath := filepath.Join(resolvedPath, sanitizedBase+"_private_key"+ext)
+		pubPath := filepath.Join(resolvedPath, sanitizedBase+"_public_key"+ext)
+		return privPath, pubPath, nil
+	}
+
+	dir := filepath.Dir(resolvedPath)
+	baseName := filepath.Base(resolvedPath)
+
+	if pathExt := filepath.Ext(baseName); pathExt != "" {
+		baseName = strings.TrimSuffix(baseName, pathExt)
+	}
+
+	privPath := filepath.Join(dir, baseName+"_private_key"+ext)
+	pubPath := filepath.Join(dir, baseName+"_public_key"+ext)
+
+	return privPath, pubPath, nil
 }

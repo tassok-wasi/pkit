@@ -18,8 +18,8 @@ import (
 )
 
 type GenerateCmd struct {
-	IssuerID int64  `arg:"" help:"ID of the Issuer Certificate to Generate CRL."`
-	TTL      string `name:"ttl" short:"t" default:"168h" required:"Next Update time for CRL (e.g., 168h, 7d, 10y)"`
+	IssuerID int64  `name:"iss" help:"ID of the Issuer Certificate to Generate CRL."`
+	TTL      string `name:"ttl" default:"168h" required:"Next Update time for CRL (e.g., 168h, 7d, 10y)"`
 }
 
 func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
@@ -34,28 +34,28 @@ func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
 	}
 
 	if issuerDBCert.IsRevoked.Valid && issuerDBCert.IsRevoked.Int64 == 1 {
-		return fmt.Errorf("couldn't generate CRL: Issuer itself is Revoked")
+		return fmt.Errorf("failed to generate CRL: Issuer itself is Revoked")
 	}
 	revokedCerts, err := query.ListAllRevokedCertificates(ctx,
 		sql.NullString{String: issuerDBCert.SerialNumber, Valid: true})
 	if err != nil {
-		return fmt.Errorf("could not get Revoked Certificates: %w", err)
+		return fmt.Errorf("failed to fetch Revoked Certificates: %w", err)
 	}
 
 	if len(revokedCerts) <= 0 {
 		return fmt.Errorf("no Certificate has been Revoked from this Issuer")
 	}
 
-	latestCRL, err := query.GetLatestCRL(ctx, issuerDBCert.SerialNumber)
+	latestCRL, err := query.GetLatestCRL(ctx, issuerDBCert.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get latest CRL: %w", err)
+		return fmt.Errorf("failed to fetch latest CRL: %w", err)
 	}
 
 	nextCRLNumber := int64(latestCRL.CrlNumber) + 1
 
-	issuerKey, err := query.GetKeyByName(ctx, issuerDBCert.KeyName)
+	issuerKey, err := query.GetKeyByID(ctx, issuerDBCert.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch issuer private key (%s): %w", issuerDBCert.KeyName, err)
+		return fmt.Errorf("failed to fetch issuer private key (%d): %w", issuerDBCert.ID, err)
 	}
 
 	rawKey, _, err := utils.ParseKeys([]byte(issuerKey.PrivateKeyPem), []byte(issuerKey.PublicKeyPem))
@@ -102,12 +102,12 @@ func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
 	generatedCrlPem := string(crlPEMBlock)
 
 	_, err = query.CreateCRL(ctx, base.CreateCRLParams{
-		Name:               formatCRLName(issuerCert.Subject.CommonName, now),
-		CrlNumber:          nextCRLNumber,
-		IssuerSerialNumber: issuerDBCert.SerialNumber,
-		ThisUpdate:         now,
-		NextUpdate:         nextUpdate,
-		CrlPem:             generatedCrlPem,
+		Name:       formatCRLName(issuerCert.Subject.CommonName, now),
+		CrlNumber:  nextCRLNumber,
+		IssuerID:   issuerDBCert.ID,
+		ThisUpdate: now,
+		NextUpdate: nextUpdate,
+		CrlPem:     generatedCrlPem,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to save generated CRL to database: %w", err)

@@ -16,7 +16,7 @@ type ReadCmd struct {
 func (rc *ReadCmd) Run(ctx context.Context, query base.Querier) error {
 	key, err := query.GetKeyByID(ctx, int64(rc.ID))
 	if err != nil {
-		return fmt.Errorf("failed to get Key from db: %w", err)
+		return fmt.Errorf("failed to fetch key from database: %w", err)
 	}
 
 	fmt.Printf("\u2022 Name: %s\n", key.Name)
@@ -24,7 +24,7 @@ func (rc *ReadCmd) Run(ctx context.Context, query base.Querier) error {
 
 	masterKey, err := utils.GetMasterKey()
 	if err != nil {
-		return fmt.Errorf("failed to get master key from your OS keyring: %w", err)
+		return fmt.Errorf("failed to fetch master key from your OS keyring: %w", err)
 	}
 	privKey, _ := pem.Decode([]byte(key.PrivateKeyPem))
 	if privKey == nil {
@@ -40,7 +40,7 @@ func (rc *ReadCmd) Run(ctx context.Context, query base.Querier) error {
 		Bytes: decryptedPrivateKey,
 	})
 	if privateKeyPem == nil {
-		return errors.New("could not encode private key")
+		return errors.New("failed to encode private key")
 	}
 
 	fmt.Printf("\n%s\n", string(privateKeyPem))

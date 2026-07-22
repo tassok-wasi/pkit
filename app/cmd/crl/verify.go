@@ -15,12 +15,12 @@ type VerifyCmd struct {
 func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	crlRecord, err := query.GetCRLByID(ctx, vc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get CRL from db: %w", err)
+		return fmt.Errorf("failed to fetch CRL from database: %w", err)
 	}
 
-	issuerDBCert, err := query.GetCertificateBySN(ctx, crlRecord.IssuerSerialNumber)
+	issuerDBCert, err := query.GetCertificateByID(ctx, crlRecord.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get issuer certificate (%s) for verification: %w", crlRecord.IssuerSerialNumber, err)
+		return fmt.Errorf("failed to get issuer certificate (%d) for verification: %w", crlRecord.ID, err)
 	}
 
 	parsedCRL, err := utils.ParseCRL([]byte(crlRecord.CrlPem))

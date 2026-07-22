@@ -12,7 +12,7 @@ import (
 func GetRSAKey(bits int) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	privKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot generate rsa key: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate rsa key: %w", err)
 	}
 	return privKey, &privKey.PublicKey, nil
 }
@@ -20,7 +20,7 @@ func GetRSAKey(bits int) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 func GetECDSAKey(curve elliptic.Curve) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	privKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot generate ecdsa key: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate ecdsa key: %w", err)
 	}
 	return privKey, &privKey.PublicKey, nil
 }
@@ -28,7 +28,7 @@ func GetECDSAKey(curve elliptic.Curve) (*ecdsa.PrivateKey, *ecdsa.PublicKey, err
 func GetED25519Key() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot generate ed25519 key: %v", err)
+		return nil, nil, fmt.Errorf("failed to generate ed25519 key: %v", err)
 	}
 	return privKey, pubKey, nil
 }

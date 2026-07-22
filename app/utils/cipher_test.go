@@ -14,7 +14,7 @@ func TestEncryptAndDecrypt_Success(t *testing.T) {
 
 	for _, k := range [][]byte{key128, key192, key256} {
 		if _, err := rand.Read(k); err != nil {
-			t.Fatalf("Failed to generate random key: %v", err)
+			t.Fatalf("failed to generate random key: %v", err)
 		}
 	}
 

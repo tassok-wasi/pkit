@@ -17,7 +17,7 @@ type VerifyCmd struct {
 func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, vc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get Certificate from db: %w", err)
+		return fmt.Errorf("failed to fetch certificate from database: %w", err)
 	}
 
 	cert, err := utils.ParseCertificate([]byte(dbCert.CertificatePem))
@@ -31,9 +31,10 @@ func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 
 	fmt.Println("Building and verifying trust chain...")
 
-	for {
+	const maxChainDepth = 10
+	for depth := range maxChainDepth {
 		if workingCert.Subject.String() == workingCert.Issuer.String() {
-			fmt.Printf("  └─ Root Anchor Found: %s\n", workingCert.Subject.CommonName)
+			fmt.Printf(" Root Anchor Found: %s\n", workingCert.Subject.CommonName)
 			break
 		}
 
@@ -48,19 +49,23 @@ func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 			return fmt.Errorf("Verification Failed: Trust chain broken. Authority Certificate with SKID [%s] (Issuer: %s) could not be found in the system: %w", akidHex, workingCert.Issuer.CommonName, err)
 		}
 
-		parentX509, err := utils.ParseCertificate([]byte(parentDBCert.CertificatePem))
+		parentCert, err := utils.ParseCertificate([]byte(parentDBCert.CertificatePem))
 		if err != nil {
 			return fmt.Errorf("failed to parse parent certificate: %w", err)
 		}
 
-		if err := workingCert.CheckSignatureFrom(parentX509); err != nil {
-			return fmt.Errorf("Verification Failed: Cryptographic signature mismatch between %s and issuer %s: %w", workingCert.Subject.CommonName, parentX509.Subject.CommonName, err)
+		if err := workingCert.CheckSignatureFrom(parentCert); err != nil {
+			return fmt.Errorf("Verification Failed: Cryptographic signature mismatch between %s and issuer %s: %w", workingCert.Subject.CommonName, parentCert.Subject.CommonName, err)
 		}
 
-		fmt.Printf("  ├─ Verified signature by: %s\n", parentX509.Subject.CommonName)
+		fmt.Printf(" Verified signature by: %s\n", parentCert.Subject.CommonName)
 
-		chain = append(chain, parentX509)
-		workingCert = parentX509
+		chain = append(chain, parentCert)
+		workingCert = parentCert
+
+		if depth == maxChainDepth-1 {
+			return fmt.Errorf("Verification Failed: Exceeded maximum allowed chain depth (%d)", maxChainDepth)
+		}
 	}
 	now := time.Now()
 	for _, cert := range chain {

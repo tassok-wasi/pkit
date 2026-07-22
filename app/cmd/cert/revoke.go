@@ -17,7 +17,7 @@ type RevokeCmd struct {
 func (rc *RevokeCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, rc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get Certificate from db: %w", err)
+		return fmt.Errorf("failed to fetch certificate from database: %w", err)
 	}
 
 	if dbCert.IsRevoked.Int64 == 1 {
@@ -37,7 +37,7 @@ func (rc *RevokeCmd) Run(ctx context.Context, query base.Querier) error {
 		SerialNumber:     dbCert.SerialNumber,
 	})
 	if err != nil {
-		return fmt.Errorf("could not Revoke Certificate: %w", err)
+		return fmt.Errorf("failed to Revoke Certificate: %w", err)
 	}
 
 	fmt.Println("Successfully Revoked Certificate.")

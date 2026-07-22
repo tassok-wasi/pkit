@@ -18,7 +18,7 @@ type VerifyCmd struct {
 func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	csrRecord, err := query.GetCSRByID(ctx, vc.ID)
 	if err != nil {
-		return fmt.Errorf("CSR #%d not found: %w", vc.ID, err)
+		return fmt.Errorf("failed to fetch CSR from database: %w", err)
 	}
 
 	block, _ := pem.Decode([]byte(csrRecord.CsrPem))
@@ -52,8 +52,8 @@ func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 		keyDetail = fmt.Sprintf("%T", pub)
 	}
 
-	if csrRecord.KeyName != "" {
-		keyRecord, err := query.GetKeyByName(ctx, csrRecord.KeyName)
+	if csrRecord.KeyID != 0 {
+		keyRecord, err := query.GetKeyByID(ctx, csrRecord.ID)
 		if err == nil {
 			keyBlock, _ := pem.Decode([]byte(keyRecord.PublicKeyPem))
 			if keyBlock != nil {

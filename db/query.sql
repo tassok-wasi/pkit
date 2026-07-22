@@ -17,7 +17,7 @@ INSERT INTO certificates (
     serial_number,
     common_name,
     type,
-    key_name,
+    key_id,
     issuer_serial_number,
     skid,
     akid,
@@ -29,7 +29,7 @@ INSERT INTO certificates (
     sqlc.arg('serial_number'),
     sqlc.arg('common_name'),
     sqlc.arg('type'),
-    sqlc.arg('key_name'),
+    sqlc.arg('key_id'),
     sqlc.arg('issuer_serial_number'),
     sqlc.arg('skid'),
     sqlc.arg('akid'),
@@ -88,13 +88,16 @@ SELECT * FROM certificates WHERE common_name = sqlc.arg('common_name');
 -- name: GetCertificateBySKID :one
 SELECT * FROM certificates WHERE skid = sqlc.arg('skid');
 
+-- name: GetCertificateSerialNumberByID :one
+SELECT serial_number FROM certificates WHERE id = sqlc.arg('id');
+
 
 -- name: UpdateCertificate :one
 UPDATE certificates
 SET
   common_name = COALESCE(sqlc.narg('common_name'), common_name),
   type = COALESCE(sqlc.narg('type'), type),
-  key_name = COALESCE(sqlc.narg('key_name'), key_name),
+  key_id = COALESCE(sqlc.narg('key_id'), key_id),
   issuer_serial_number = COALESCE(sqlc.narg('issuer_serial_number'), issuer_serial_number),
   skid = COALESCE(sqlc.narg('skid'), skid),
   akid = COALESCE(sqlc.narg('akid'), akid),
@@ -135,14 +138,14 @@ ORDER BY id ASC;
 INSERT INTO crls (
     name,
     crl_number,
-    issuer_serial_number,
+    issuer_id,
     this_update,
     next_update,
     crl_pem
 ) VALUES (
     sqlc.arg('name'),
     sqlc.arg('crl_number'),
-    sqlc.arg('issuer_serial_number'),
+    sqlc.arg('issuer_id'),
     sqlc.arg('this_update'),
     sqlc.arg('next_update'),
     sqlc.arg('crl_pem')
@@ -153,25 +156,25 @@ RETURNING *;
 SELECT
     name,
     crl_number,
-    issuer_serial_number,
+    issuer_id,
     this_update,
     next_update,
     crl_pem
 FROM crls
-WHERE issuer_serial_number = sqlc.arg('issuer_serial_number')
+WHERE issuer_id = sqlc.arg('issuer_id')
 ORDER BY created_at DESC
 LIMIT 1;
 
 -- name: ListCRLs :many
 SELECT * FROM crls
-WHERE issuer_serial_number = sqlc.arg('issuer_serial_number')
+WHERE issuer_id = sqlc.arg('issuer_id')
 ORDER BY id ASC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
 -- name: ListAllCRLs :many
 SELECT * FROM crls
-WHERE issuer_serial_number = sqlc.arg('issuer_serial_number')
+WHERE issuer_id = sqlc.arg('issuer_id')
 ORDER BY id ASC;
 
 
@@ -181,21 +184,21 @@ SELECT * FROM crls WHERE id = sqlc.arg('id');
 -- name: CreateCSR :one
 INSERT INTO csrs (
     common_name,
-    key_name,
+    key_id,
     status,
     csr_pem,
-    certificate_serial_number
+    certificate_id
 ) VALUES (
     sqlc.arg('common_name'),
-    sqlc.arg('key_name'),
+    sqlc.arg('key_id'),
     sqlc.arg('status'),
     sqlc.arg('csr_pem'),
-    sqlc.arg('certificate_serial_number')
+    sqlc.arg('certificate_id')
 )
 RETURNING *;
 
 -- name: ListCSRs :many
-SELECT id, common_name, key_name, status, csr_pem, certificate_serial_number
+SELECT id, common_name, key_id, status, csr_pem, certificate_id
 FROM csrs
 WHERE (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
 ORDER BY id ASC
@@ -203,14 +206,14 @@ LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
 -- name: ListAllCSRs :many
-SELECT id, common_name, key_name, status, csr_pem, certificate_serial_number
+SELECT id, common_name, key_id, status, csr_pem, certificate_id
 FROM csrs
 WHERE (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
 ORDER BY id ASC;
 
 -- name: UpdateCSRStatus :exec
 UPDATE csrs
-SET status = sqlc.arg('status'), certificate_serial_number = sqlc.arg('certificate_serial_number')
+SET status = sqlc.arg('status'), certificate_id = sqlc.arg('certificate_id')
 WHERE common_name = sqlc.arg('common_name');
 
 -- name: GetCSRByID :one

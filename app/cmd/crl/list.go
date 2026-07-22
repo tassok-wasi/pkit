@@ -9,9 +9,9 @@ import (
 )
 
 type ListCmd struct {
-	Limit         int    `name:"limit" short:"l" help:"Limit limits the output. if not given then it will show everything."`
-	Offset        int    `name:"offset" short:"o" help:"Skip first N rows."`
-	ISerialNumber string `name:"isn" required:"" help:"Serial Number of the Issuer Certificate."`
+	Limit    int   `name:"limit" short:"l" help:"Limit limits the output. if not given then it will show everything."`
+	Offset   int   `name:"offset" short:"o" help:"Skip first N rows."`
+	IssuerID int64 `name:"iss" required:"" help:"ID of the Issuer Certificate."`
 }
 
 func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
@@ -21,13 +21,13 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 	fmt.Fprintln(w, "--\t----\t----------\t-----------\t-----------")
 
 	if lc.Limit == 0 && lc.Offset == 0 {
-		crls, err := query.ListAllCRLs(ctx, lc.ISerialNumber)
+		crls, err := query.ListAllCRLs(ctx, lc.IssuerID)
 		if err != nil {
-			return fmt.Errorf("failed to get crls from db: %w", err)
+			return fmt.Errorf("failed to fetch CRLs from database: %w", err)
 		}
 
 		if len(crls) == 0 {
-			fmt.Printf("No CRLs found for issuer serial: %s\n", lc.ISerialNumber)
+			fmt.Printf("No CRLs found for issuer serial: %d\n", lc.IssuerID)
 			return nil
 		}
 
@@ -46,16 +46,16 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 		return w.Flush()
 	} else {
 		crls, err := query.ListCRLs(ctx, base.ListCRLsParams{
-			IssuerSerialNumber: lc.ISerialNumber,
-			Limit:              int64(lc.Limit),
-			Offset:             int64(lc.Offset),
+			IssuerID: lc.IssuerID,
+			Limit:    int64(lc.Limit),
+			Offset:   int64(lc.Offset),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get crls from db: %w", err)
+			return fmt.Errorf("failed to fetch CRLs from database: %w", err)
 		}
 
 		if len(crls) == 0 {
-			fmt.Printf("No CRLs found for issuer serial: %s\n", lc.ISerialNumber)
+			fmt.Printf("No CRLs found for issuer serial: %d\n", lc.IssuerID)
 			return nil
 		}
 

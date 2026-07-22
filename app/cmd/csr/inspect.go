@@ -19,7 +19,7 @@ type InspectCmd struct {
 func (ic *InspectCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCsr, err := query.GetCSRByID(ctx, ic.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CSR #%d: %w", ic.ID, err)
+		return fmt.Errorf("failed to fetch CSR from database: %w", err)
 	}
 
 	block, _ := pem.Decode([]byte(dbCsr.CsrPem))
@@ -77,9 +77,14 @@ func (ic *InspectCmd) Run(ctx context.Context, query base.Querier) error {
 		fmt.Fprintf(w, "Email SANs\t%s\n", strings.Join(csr.EmailAddresses, ", "))
 	}
 
+	serialNumber, err := query.GetCertificateSerialNumberByID(ctx, dbCsr.CertificateID.Int64)
+	if err != nil {
+		return fmt.Errorf("failed to get Certificate Serial Number from db: %w", err)
+	}
+
 	// Linked Certificate Serial (if already signed)
-	if dbCsr.CertificateSerialNumber.Valid && dbCsr.CertificateSerialNumber.String != "" {
-		fmt.Fprintf(w, "Signed Cert Serial\t%s\n", dbCsr.CertificateSerialNumber.String)
+	if serialNumber != "" {
+		fmt.Fprintf(w, "Signed Cert Serial\t%s\n", serialNumber)
 	}
 
 	w.Flush()

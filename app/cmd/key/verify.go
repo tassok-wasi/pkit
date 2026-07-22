@@ -13,13 +13,13 @@ import (
 )
 
 type VerifyCmd struct {
-	ID int `arg:"" help:"ID of the Certificate to Verify."`
+	ID int `arg:"" help:"ID of the Certificate which to Verify Keys."`
 }
 
 func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, int64(vc.ID))
 	if err != nil {
-		return fmt.Errorf("failed to get Certificate from db: %w", err)
+		return fmt.Errorf("failed to fetch Certificate from database: %w", err)
 	}
 	cert, err := utils.ParseCertificate([]byte(dbCert.CertificatePem))
 	if err != nil {

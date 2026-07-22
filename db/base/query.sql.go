@@ -15,7 +15,7 @@ const createCRL = `-- name: CreateCRL :one
 INSERT INTO crls (
     name,
     crl_number,
-    issuer_serial_number,
+    issuer_id,
     this_update,
     next_update,
     crl_pem
@@ -27,23 +27,23 @@ INSERT INTO crls (
     ?5,
     ?6
 )
-RETURNING id, name, crl_number, issuer_serial_number, this_update, next_update, crl_pem, created_at
+RETURNING id, name, crl_number, issuer_id, this_update, next_update, crl_pem, created_at
 `
 
 type CreateCRLParams struct {
-	Name               string    `json:"name"`
-	CrlNumber          int64     `json:"crl_number"`
-	IssuerSerialNumber string    `json:"issuer_serial_number"`
-	ThisUpdate         time.Time `json:"this_update"`
-	NextUpdate         time.Time `json:"next_update"`
-	CrlPem             string    `json:"crl_pem"`
+	Name       string    `json:"name"`
+	CrlNumber  int64     `json:"crl_number"`
+	IssuerID   int64     `json:"issuer_id"`
+	ThisUpdate time.Time `json:"this_update"`
+	NextUpdate time.Time `json:"next_update"`
+	CrlPem     string    `json:"crl_pem"`
 }
 
 func (q *Queries) CreateCRL(ctx context.Context, arg CreateCRLParams) (Crl, error) {
 	row := q.db.QueryRowContext(ctx, createCRL,
 		arg.Name,
 		arg.CrlNumber,
-		arg.IssuerSerialNumber,
+		arg.IssuerID,
 		arg.ThisUpdate,
 		arg.NextUpdate,
 		arg.CrlPem,
@@ -53,7 +53,7 @@ func (q *Queries) CreateCRL(ctx context.Context, arg CreateCRLParams) (Crl, erro
 		&i.ID,
 		&i.Name,
 		&i.CrlNumber,
-		&i.IssuerSerialNumber,
+		&i.IssuerID,
 		&i.ThisUpdate,
 		&i.NextUpdate,
 		&i.CrlPem,
@@ -65,10 +65,10 @@ func (q *Queries) CreateCRL(ctx context.Context, arg CreateCRLParams) (Crl, erro
 const createCSR = `-- name: CreateCSR :one
 INSERT INTO csrs (
     common_name,
-    key_name,
+    key_id,
     status,
     csr_pem,
-    certificate_serial_number
+    certificate_id
 ) VALUES (
     ?1,
     ?2,
@@ -76,33 +76,33 @@ INSERT INTO csrs (
     ?4,
     ?5
 )
-RETURNING id, common_name, key_name, status, csr_pem, certificate_serial_number, created_at
+RETURNING id, common_name, key_id, status, csr_pem, certificate_id, created_at
 `
 
 type CreateCSRParams struct {
-	CommonName              string         `json:"common_name"`
-	KeyName                 string         `json:"key_name"`
-	Status                  string         `json:"status"`
-	CsrPem                  string         `json:"csr_pem"`
-	CertificateSerialNumber sql.NullString `json:"certificate_serial_number"`
+	CommonName    string        `json:"common_name"`
+	KeyID         int64         `json:"key_id"`
+	Status        string        `json:"status"`
+	CsrPem        string        `json:"csr_pem"`
+	CertificateID sql.NullInt64 `json:"certificate_id"`
 }
 
 func (q *Queries) CreateCSR(ctx context.Context, arg CreateCSRParams) (Csr, error) {
 	row := q.db.QueryRowContext(ctx, createCSR,
 		arg.CommonName,
-		arg.KeyName,
+		arg.KeyID,
 		arg.Status,
 		arg.CsrPem,
-		arg.CertificateSerialNumber,
+		arg.CertificateID,
 	)
 	var i Csr
 	err := row.Scan(
 		&i.ID,
 		&i.CommonName,
-		&i.KeyName,
+		&i.KeyID,
 		&i.Status,
 		&i.CsrPem,
-		&i.CertificateSerialNumber,
+		&i.CertificateID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -113,7 +113,7 @@ INSERT INTO certificates (
     serial_number,
     common_name,
     type,
-    key_name,
+    key_id,
     issuer_serial_number,
     skid,
     akid,
@@ -134,14 +134,14 @@ INSERT INTO certificates (
     ?10,
     ?11
 )
-RETURNING id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
+RETURNING id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
 `
 
 type CreateCertificateParams struct {
 	SerialNumber       string         `json:"serial_number"`
 	CommonName         string         `json:"common_name"`
 	Type               string         `json:"type"`
-	KeyName            string         `json:"key_name"`
+	KeyID              int64          `json:"key_id"`
 	IssuerSerialNumber sql.NullString `json:"issuer_serial_number"`
 	Skid               string         `json:"skid"`
 	Akid               string         `json:"akid"`
@@ -156,7 +156,7 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 		arg.SerialNumber,
 		arg.CommonName,
 		arg.Type,
-		arg.KeyName,
+		arg.KeyID,
 		arg.IssuerSerialNumber,
 		arg.Skid,
 		arg.Akid,
@@ -171,7 +171,7 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,
@@ -229,7 +229,7 @@ func (q *Queries) CreateKeyPair(ctx context.Context, arg CreateKeyPairParams) (K
 }
 
 const getCRLByID = `-- name: GetCRLByID :one
-SELECT id, name, crl_number, issuer_serial_number, this_update, next_update, crl_pem, created_at FROM crls WHERE id = ?1
+SELECT id, name, crl_number, issuer_id, this_update, next_update, crl_pem, created_at FROM crls WHERE id = ?1
 `
 
 func (q *Queries) GetCRLByID(ctx context.Context, id int64) (Crl, error) {
@@ -239,7 +239,7 @@ func (q *Queries) GetCRLByID(ctx context.Context, id int64) (Crl, error) {
 		&i.ID,
 		&i.Name,
 		&i.CrlNumber,
-		&i.IssuerSerialNumber,
+		&i.IssuerID,
 		&i.ThisUpdate,
 		&i.NextUpdate,
 		&i.CrlPem,
@@ -249,7 +249,7 @@ func (q *Queries) GetCRLByID(ctx context.Context, id int64) (Crl, error) {
 }
 
 const getCSRByID = `-- name: GetCSRByID :one
-SELECT id, common_name, key_name, status, csr_pem, certificate_serial_number, created_at FROM csrs WHERE id = ?1
+SELECT id, common_name, key_id, status, csr_pem, certificate_id, created_at FROM csrs WHERE id = ?1
 `
 
 func (q *Queries) GetCSRByID(ctx context.Context, id int64) (Csr, error) {
@@ -258,17 +258,17 @@ func (q *Queries) GetCSRByID(ctx context.Context, id int64) (Csr, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.CommonName,
-		&i.KeyName,
+		&i.KeyID,
 		&i.Status,
 		&i.CsrPem,
-		&i.CertificateSerialNumber,
+		&i.CertificateID,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getCertificateByCN = `-- name: GetCertificateByCN :one
-SELECT id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE common_name = ?1
+SELECT id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE common_name = ?1
 `
 
 func (q *Queries) GetCertificateByCN(ctx context.Context, commonName string) (Certificate, error) {
@@ -279,7 +279,7 @@ func (q *Queries) GetCertificateByCN(ctx context.Context, commonName string) (Ce
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,
@@ -296,7 +296,7 @@ func (q *Queries) GetCertificateByCN(ctx context.Context, commonName string) (Ce
 }
 
 const getCertificateByID = `-- name: GetCertificateByID :one
-SELECT id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE id = ?1
+SELECT id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE id = ?1
 `
 
 func (q *Queries) GetCertificateByID(ctx context.Context, id int64) (Certificate, error) {
@@ -307,7 +307,7 @@ func (q *Queries) GetCertificateByID(ctx context.Context, id int64) (Certificate
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,
@@ -324,7 +324,7 @@ func (q *Queries) GetCertificateByID(ctx context.Context, id int64) (Certificate
 }
 
 const getCertificateBySKID = `-- name: GetCertificateBySKID :one
-SELECT id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE skid = ?1
+SELECT id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE skid = ?1
 `
 
 func (q *Queries) GetCertificateBySKID(ctx context.Context, skid string) (Certificate, error) {
@@ -335,7 +335,7 @@ func (q *Queries) GetCertificateBySKID(ctx context.Context, skid string) (Certif
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,
@@ -352,7 +352,7 @@ func (q *Queries) GetCertificateBySKID(ctx context.Context, skid string) (Certif
 }
 
 const getCertificateBySN = `-- name: GetCertificateBySN :one
-SELECT id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE serial_number = ?1
+SELECT id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates WHERE serial_number = ?1
 `
 
 func (q *Queries) GetCertificateBySN(ctx context.Context, serialNumber string) (Certificate, error) {
@@ -363,7 +363,7 @@ func (q *Queries) GetCertificateBySN(ctx context.Context, serialNumber string) (
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,
@@ -377,6 +377,17 @@ func (q *Queries) GetCertificateBySN(ctx context.Context, serialNumber string) (
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getCertificateSerialNumberByID = `-- name: GetCertificateSerialNumberByID :one
+SELECT serial_number FROM certificates WHERE id = ?1
+`
+
+func (q *Queries) GetCertificateSerialNumberByID(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getCertificateSerialNumberByID, id)
+	var serial_number string
+	err := row.Scan(&serial_number)
+	return serial_number, err
 }
 
 const getKeyByID = `-- name: GetKeyByID :one
@@ -419,32 +430,32 @@ const getLatestCRL = `-- name: GetLatestCRL :one
 SELECT
     name,
     crl_number,
-    issuer_serial_number,
+    issuer_id,
     this_update,
     next_update,
     crl_pem
 FROM crls
-WHERE issuer_serial_number = ?1
+WHERE issuer_id = ?1
 ORDER BY created_at DESC
 LIMIT 1
 `
 
 type GetLatestCRLRow struct {
-	Name               string    `json:"name"`
-	CrlNumber          int64     `json:"crl_number"`
-	IssuerSerialNumber string    `json:"issuer_serial_number"`
-	ThisUpdate         time.Time `json:"this_update"`
-	NextUpdate         time.Time `json:"next_update"`
-	CrlPem             string    `json:"crl_pem"`
+	Name       string    `json:"name"`
+	CrlNumber  int64     `json:"crl_number"`
+	IssuerID   int64     `json:"issuer_id"`
+	ThisUpdate time.Time `json:"this_update"`
+	NextUpdate time.Time `json:"next_update"`
+	CrlPem     string    `json:"crl_pem"`
 }
 
-func (q *Queries) GetLatestCRL(ctx context.Context, issuerSerialNumber string) (GetLatestCRLRow, error) {
-	row := q.db.QueryRowContext(ctx, getLatestCRL, issuerSerialNumber)
+func (q *Queries) GetLatestCRL(ctx context.Context, issuerID int64) (GetLatestCRLRow, error) {
+	row := q.db.QueryRowContext(ctx, getLatestCRL, issuerID)
 	var i GetLatestCRLRow
 	err := row.Scan(
 		&i.Name,
 		&i.CrlNumber,
-		&i.IssuerSerialNumber,
+		&i.IssuerID,
 		&i.ThisUpdate,
 		&i.NextUpdate,
 		&i.CrlPem,
@@ -453,13 +464,13 @@ func (q *Queries) GetLatestCRL(ctx context.Context, issuerSerialNumber string) (
 }
 
 const listAllCRLs = `-- name: ListAllCRLs :many
-SELECT id, name, crl_number, issuer_serial_number, this_update, next_update, crl_pem, created_at FROM crls
-WHERE issuer_serial_number = ?1
+SELECT id, name, crl_number, issuer_id, this_update, next_update, crl_pem, created_at FROM crls
+WHERE issuer_id = ?1
 ORDER BY id ASC
 `
 
-func (q *Queries) ListAllCRLs(ctx context.Context, issuerSerialNumber string) ([]Crl, error) {
-	rows, err := q.db.QueryContext(ctx, listAllCRLs, issuerSerialNumber)
+func (q *Queries) ListAllCRLs(ctx context.Context, issuerID int64) ([]Crl, error) {
+	rows, err := q.db.QueryContext(ctx, listAllCRLs, issuerID)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +482,7 @@ func (q *Queries) ListAllCRLs(ctx context.Context, issuerSerialNumber string) ([
 			&i.ID,
 			&i.Name,
 			&i.CrlNumber,
-			&i.IssuerSerialNumber,
+			&i.IssuerID,
 			&i.ThisUpdate,
 			&i.NextUpdate,
 			&i.CrlPem,
@@ -491,19 +502,19 @@ func (q *Queries) ListAllCRLs(ctx context.Context, issuerSerialNumber string) ([
 }
 
 const listAllCSRs = `-- name: ListAllCSRs :many
-SELECT id, common_name, key_name, status, csr_pem, certificate_serial_number
+SELECT id, common_name, key_id, status, csr_pem, certificate_id
 FROM csrs
 WHERE (CAST(?1 AS TEXT) IS NULL OR status = CAST(?1 AS TEXT))
 ORDER BY id ASC
 `
 
 type ListAllCSRsRow struct {
-	ID                      int64          `json:"id"`
-	CommonName              string         `json:"common_name"`
-	KeyName                 string         `json:"key_name"`
-	Status                  string         `json:"status"`
-	CsrPem                  string         `json:"csr_pem"`
-	CertificateSerialNumber sql.NullString `json:"certificate_serial_number"`
+	ID            int64         `json:"id"`
+	CommonName    string        `json:"common_name"`
+	KeyID         int64         `json:"key_id"`
+	Status        string        `json:"status"`
+	CsrPem        string        `json:"csr_pem"`
+	CertificateID sql.NullInt64 `json:"certificate_id"`
 }
 
 func (q *Queries) ListAllCSRs(ctx context.Context, status sql.NullString) ([]ListAllCSRsRow, error) {
@@ -518,10 +529,10 @@ func (q *Queries) ListAllCSRs(ctx context.Context, status sql.NullString) ([]Lis
 		if err := rows.Scan(
 			&i.ID,
 			&i.CommonName,
-			&i.KeyName,
+			&i.KeyID,
 			&i.Status,
 			&i.CsrPem,
-			&i.CertificateSerialNumber,
+			&i.CertificateID,
 		); err != nil {
 			return nil, err
 		}
@@ -633,7 +644,7 @@ func (q *Queries) ListAllKeys(ctx context.Context) ([]ListAllKeysRow, error) {
 }
 
 const listAllRevokedCertificates = `-- name: ListAllRevokedCertificates :many
-SELECT id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates
+SELECT id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates
 WHERE
     issuer_serial_number = ?1
     AND is_revoked = 1
@@ -654,7 +665,7 @@ func (q *Queries) ListAllRevokedCertificates(ctx context.Context, issuerSerialNu
 			&i.SerialNumber,
 			&i.CommonName,
 			&i.Type,
-			&i.KeyName,
+			&i.KeyID,
 			&i.IssuerSerialNumber,
 			&i.NotBefore,
 			&i.NotAfter,
@@ -681,21 +692,21 @@ func (q *Queries) ListAllRevokedCertificates(ctx context.Context, issuerSerialNu
 }
 
 const listCRLs = `-- name: ListCRLs :many
-SELECT id, name, crl_number, issuer_serial_number, this_update, next_update, crl_pem, created_at FROM crls
-WHERE issuer_serial_number = ?1
+SELECT id, name, crl_number, issuer_id, this_update, next_update, crl_pem, created_at FROM crls
+WHERE issuer_id = ?1
 ORDER BY id ASC
 LIMIT ?3
 OFFSET ?2
 `
 
 type ListCRLsParams struct {
-	IssuerSerialNumber string `json:"issuer_serial_number"`
-	Offset             int64  `json:"offset"`
-	Limit              int64  `json:"limit"`
+	IssuerID int64 `json:"issuer_id"`
+	Offset   int64 `json:"offset"`
+	Limit    int64 `json:"limit"`
 }
 
 func (q *Queries) ListCRLs(ctx context.Context, arg ListCRLsParams) ([]Crl, error) {
-	rows, err := q.db.QueryContext(ctx, listCRLs, arg.IssuerSerialNumber, arg.Offset, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listCRLs, arg.IssuerID, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -707,7 +718,7 @@ func (q *Queries) ListCRLs(ctx context.Context, arg ListCRLsParams) ([]Crl, erro
 			&i.ID,
 			&i.Name,
 			&i.CrlNumber,
-			&i.IssuerSerialNumber,
+			&i.IssuerID,
 			&i.ThisUpdate,
 			&i.NextUpdate,
 			&i.CrlPem,
@@ -727,7 +738,7 @@ func (q *Queries) ListCRLs(ctx context.Context, arg ListCRLsParams) ([]Crl, erro
 }
 
 const listCSRs = `-- name: ListCSRs :many
-SELECT id, common_name, key_name, status, csr_pem, certificate_serial_number
+SELECT id, common_name, key_id, status, csr_pem, certificate_id
 FROM csrs
 WHERE (CAST(?1 AS TEXT) IS NULL OR status = CAST(?1 AS TEXT))
 ORDER BY id ASC
@@ -742,12 +753,12 @@ type ListCSRsParams struct {
 }
 
 type ListCSRsRow struct {
-	ID                      int64          `json:"id"`
-	CommonName              string         `json:"common_name"`
-	KeyName                 string         `json:"key_name"`
-	Status                  string         `json:"status"`
-	CsrPem                  string         `json:"csr_pem"`
-	CertificateSerialNumber sql.NullString `json:"certificate_serial_number"`
+	ID            int64         `json:"id"`
+	CommonName    string        `json:"common_name"`
+	KeyID         int64         `json:"key_id"`
+	Status        string        `json:"status"`
+	CsrPem        string        `json:"csr_pem"`
+	CertificateID sql.NullInt64 `json:"certificate_id"`
 }
 
 func (q *Queries) ListCSRs(ctx context.Context, arg ListCSRsParams) ([]ListCSRsRow, error) {
@@ -762,10 +773,10 @@ func (q *Queries) ListCSRs(ctx context.Context, arg ListCSRsParams) ([]ListCSRsR
 		if err := rows.Scan(
 			&i.ID,
 			&i.CommonName,
-			&i.KeyName,
+			&i.KeyID,
 			&i.Status,
 			&i.CsrPem,
-			&i.CertificateSerialNumber,
+			&i.CertificateID,
 		); err != nil {
 			return nil, err
 		}
@@ -893,7 +904,7 @@ func (q *Queries) ListKeys(ctx context.Context, arg ListKeysParams) ([]ListKeysR
 }
 
 const listRevokedCertificates = `-- name: ListRevokedCertificates :many
-SELECT id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates
+SELECT id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at FROM certificates
 WHERE
     issuer_serial_number = ?1
     AND is_revoked = 1
@@ -922,7 +933,7 @@ func (q *Queries) ListRevokedCertificates(ctx context.Context, arg ListRevokedCe
 			&i.SerialNumber,
 			&i.CommonName,
 			&i.Type,
-			&i.KeyName,
+			&i.KeyID,
 			&i.IssuerSerialNumber,
 			&i.NotBefore,
 			&i.NotAfter,
@@ -956,7 +967,7 @@ SET
     revocation_time = COALESCE(?3, revocation_time),
     status = COALESCE(?4, status)
 WHERE serial_number = ?5
-RETURNING id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
+RETURNING id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
 `
 
 type RevokeCertificateParams struct {
@@ -981,7 +992,7 @@ func (q *Queries) RevokeCertificate(ctx context.Context, arg RevokeCertificatePa
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,
@@ -999,18 +1010,18 @@ func (q *Queries) RevokeCertificate(ctx context.Context, arg RevokeCertificatePa
 
 const updateCSRStatus = `-- name: UpdateCSRStatus :exec
 UPDATE csrs
-SET status = ?1, certificate_serial_number = ?2
+SET status = ?1, certificate_id = ?2
 WHERE common_name = ?3
 `
 
 type UpdateCSRStatusParams struct {
-	Status                  string         `json:"status"`
-	CertificateSerialNumber sql.NullString `json:"certificate_serial_number"`
-	CommonName              string         `json:"common_name"`
+	Status        string        `json:"status"`
+	CertificateID sql.NullInt64 `json:"certificate_id"`
+	CommonName    string        `json:"common_name"`
 }
 
 func (q *Queries) UpdateCSRStatus(ctx context.Context, arg UpdateCSRStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateCSRStatus, arg.Status, arg.CertificateSerialNumber, arg.CommonName)
+	_, err := q.db.ExecContext(ctx, updateCSRStatus, arg.Status, arg.CertificateID, arg.CommonName)
 	return err
 }
 
@@ -1019,7 +1030,7 @@ UPDATE certificates
 SET
   common_name = COALESCE(?1, common_name),
   type = COALESCE(?2, type),
-  key_name = COALESCE(?3, key_name),
+  key_id = COALESCE(?3, key_id),
   issuer_serial_number = COALESCE(?4, issuer_serial_number),
   skid = COALESCE(?5, skid),
   akid = COALESCE(?6, akid),
@@ -1028,13 +1039,13 @@ SET
   not_after = COALESCE(?9, not_after),
   certificate_pem = COALESCE(?10, certificate_pem)
 WHERE serial_number = ?11
-RETURNING id, serial_number, common_name, type, key_name, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
+RETURNING id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
 `
 
 type UpdateCertificateParams struct {
 	CommonName         sql.NullString `json:"common_name"`
 	Type               sql.NullString `json:"type"`
-	KeyName            sql.NullString `json:"key_name"`
+	KeyID              sql.NullInt64  `json:"key_id"`
 	IssuerSerialNumber sql.NullString `json:"issuer_serial_number"`
 	Skid               sql.NullString `json:"skid"`
 	Akid               sql.NullString `json:"akid"`
@@ -1049,7 +1060,7 @@ func (q *Queries) UpdateCertificate(ctx context.Context, arg UpdateCertificatePa
 	row := q.db.QueryRowContext(ctx, updateCertificate,
 		arg.CommonName,
 		arg.Type,
-		arg.KeyName,
+		arg.KeyID,
 		arg.IssuerSerialNumber,
 		arg.Skid,
 		arg.Akid,
@@ -1065,7 +1076,7 @@ func (q *Queries) UpdateCertificate(ctx context.Context, arg UpdateCertificatePa
 		&i.SerialNumber,
 		&i.CommonName,
 		&i.Type,
-		&i.KeyName,
+		&i.KeyID,
 		&i.IssuerSerialNumber,
 		&i.NotBefore,
 		&i.NotAfter,

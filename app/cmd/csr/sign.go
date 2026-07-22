@@ -6,43 +6,41 @@ import (
 	_db_ "certman/db"
 	"certman/db/base"
 	"context"
-	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"database/sql"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
-	"time"
 )
 
 type SignCmd struct {
 	ID   int64  `arg:"" help:"ID of the CSR to Sign."`
 	Type string `name:"type" required:"" help:"Type of the Certificate e.g., CA, INTERMEDIATE, LEAF"`
-	TTL  string `name:"ttl" short:"t" required:"" help:"Time-To-Live of the certificate (e.g., 1000h, 30d, 10y)." default:"8760h"`
+	TTL  string `name:"ttl" required:"" help:"Time-To-Live of the certificate (e.g., 1000h, 30d, 10y)." default:"8760h"`
 
 	KeyUsages    []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Custom key usages (comma-separated or multiple flags)."`
 	ExtKeyUsages []string `name:"eku" enum:"any,server-auth,client-auth,code-signing,email-protection,time-stamping,ocsp-signing" help:"Custom extended key usages (comma-separated or multiple flags)."`
+	PathLen      int      `name:"path-len" help:"Maximum Path length of the Certificate. Omit for CAs and Leaves"`
 
-	IssuerID int64 `name:"id" help:"Issuer Certificate ID"`
+	IssuerID int64 `name:"iss" help:"Issuer Certificate ID"`
 }
 
 func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {
 	hours, err := utils.ParseTTLToHours(sc.TTL)
 	if err != nil {
-		return fmt.Errorf("invalid entry for --ttl/-t: %v", err)
+		return fmt.Errorf("invalid TTL value: %w", err)
 	}
 
 	dbCsr, err := query.GetCSRByID(ctx, sc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get CSR from db: %w", err)
+		return fmt.Errorf("failed to fetch CSR from database: %w", err)
 	}
 
 	csrBlock, _ := pem.Decode([]byte(dbCsr.CsrPem))
 	if csrBlock == nil {
-		return errors.New("could not decode CSR pem block")
+		return errors.New("failed to decode CSR pem block")
 	}
 
 	csr, err := x509.ParseCertificateRequest(csrBlock.Bytes)
@@ -52,52 +50,50 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	issuerDBCert, err := query.GetCertificateByID(ctx, int64(sc.IssuerID))
 	if err != nil {
-		return fmt.Errorf("failed to get Certificate from db: %w", err)
+		return fmt.Errorf("failed to fetch Certificate from database: %w", err)
 	}
-	issuerKeysDB, err := query.GetKeyByName(ctx, issuerDBCert.KeyName)
+	issuerDBKeys, err := query.GetKeyByID(ctx, issuerDBCert.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get issuer keys from db: %w", err)
+		return fmt.Errorf("failed to fetch issuer keys from database: %w", err)
 	}
 
 	issuerCert, err := utils.ParseCertificate([]byte(issuerDBCert.CertificatePem))
 	if err != nil {
 		return err
 	}
-	issuerPrivKey, issuerPubKey, err := utils.ParseKeys([]byte(issuerKeysDB.PrivateKeyPem), []byte(issuerKeysDB.PublicKeyPem))
+	issuerPrivKey, _, err := utils.ParseKeys([]byte(issuerDBKeys.PrivateKeyPem), []byte(issuerDBKeys.PublicKeyPem))
 	if err != nil {
 		return err
 	}
 
-	isCa := false
-	if sc.Type == "CA" || sc.Type == "INTERMEDIATE" {
-		isCa = true
-	}
-
-	usages := domain.KeyUsageConfig{
-		KeyUsages:    utils.ParseKeyUsages(sc.KeyUsages),
-		ExtKeyUsages: utils.ParseExtKeyUsages(sc.ExtKeyUsages),
-	}
-
-	template, err := sc.getTemplate(csr.Subject, domain.SANs{
-		DNSNames:       csr.DNSNames,
-		IPAddresses:    csr.IPAddresses,
-		EmailAddresses: csr.EmailAddresses,
-		URIs:           csr.URIs,
-	}, hours, issuerPubKey, issuerCert.SubjectKeyId, isCa, &usages)
-
-	certBytes, err := x509.CreateCertificate(rand.Reader, template, issuerCert, csr.PublicKey, issuerPrivKey)
-	if err != nil {
-		return fmt.Errorf("failed to create certificate: %w", err)
-	}
-
-	cert, err := x509.ParseCertificate(certBytes)
+	cert, err := domain.IssueCertificate(domain.CertOptions{
+		Type:    domain.CertType(sc.Type),
+		Subject: csr.Subject,
+		SANs: domain.SANs{
+			DNSNames:       csr.DNSNames,
+			IPAddresses:    csr.IPAddresses,
+			EmailAddresses: csr.EmailAddresses,
+			URIs:           csr.URIs,
+		},
+		TTLInHours: hours,
+		KeyPair: &domain.KeyPair{
+			PublicKey: csr.PublicKey,
+		},
+		ParentCert: issuerCert,
+		ParentKey:  issuerPrivKey,
+		Usages: &domain.KeyUsageConfig{
+			KeyUsages:    utils.ParseKeyUsages(sc.KeyUsages),
+			ExtKeyUsages: utils.ParseExtKeyUsages(sc.ExtKeyUsages),
+		},
+		PathLen: new(sc.PathLen),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
 	// ------------------------------ WRITING TO THE DATABASE ------------------------------
 
-	certPemBytes, err := utils.EncodeToPem(certBytes, "CERTIFICATE")
+	certPemBytes, err := utils.EncodeToPem(cert.Raw, "CERTIFICATE")
 	if err != nil {
 		return err
 	}
@@ -107,7 +103,7 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			SerialNumber:       cert.SerialNumber.String(),
 			CommonName:         cert.Subject.CommonName,
 			Type:               sc.Type,
-			KeyName:            dbCsr.KeyName,
+			KeyID:              dbCsr.KeyID,
 			IssuerSerialNumber: sql.NullString{String: issuerCert.SerialNumber.String(), Valid: true},
 			Skid:               hex.EncodeToString(cert.SubjectKeyId),
 			Akid:               hex.EncodeToString(cert.AuthorityKeyId),
@@ -116,13 +112,13 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			CertificatePem:     certPemBytes,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create Certificate in the database: %w", err)
+			return fmt.Errorf("failed to create Certificate in database: %w", err)
 		}
 
 		err = txQuerier.UpdateCSRStatus(ctx, base.UpdateCSRStatusParams{
-			Status:                  "SIGNED",
-			CertificateSerialNumber: sql.NullString{String: cert.SerialNumber.String(), Valid: true},
-			CommonName:              dbCsr.CommonName,
+			Status:        "SIGNED",
+			CertificateID: sql.NullInt64{Int64: dbCsr.ID, Valid: true},
+			CommonName:    dbCsr.CommonName,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update csr status: %w", err)
@@ -137,54 +133,4 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	log.Println("Succes: successfully created Certificate.")
 
 	return nil
-}
-
-func (sc *SignCmd) getTemplate(subject pkix.Name, san domain.SANs, hours int, PublicKey any, akid []byte, isCa bool, usages *domain.KeyUsageConfig) (*x509.Certificate, error) {
-	skid, err := domain.GenerateSKID(PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	sNum, err := utils.GetSerialNumber()
-	if err != nil {
-		return nil, err
-	}
-
-	template := x509.Certificate{
-		SerialNumber:   sNum,
-		Subject:        subject,
-		NotBefore:      time.Now(),
-		NotAfter:       time.Now().Add(time.Duration(hours) * time.Hour),
-		SubjectKeyId:   skid,
-		AuthorityKeyId: akid,
-
-		DNSNames:       san.DNSNames,
-		EmailAddresses: san.EmailAddresses,
-		IPAddresses:    san.IPAddresses,
-		URIs:           san.URIs,
-
-		BasicConstraintsValid: true,
-		IsCA:                  isCa,
-	}
-
-	if usages != nil && len(usages.KeyUsages) > 0 {
-		template.KeyUsage = 0
-		for _, ku := range usages.KeyUsages {
-			template.KeyUsage |= ku
-		}
-	} else {
-		if isCa {
-			template.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageCRLSign
-		} else {
-			template.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
-		}
-	}
-
-	if usages != nil && len(usages.ExtKeyUsages) > 0 {
-		template.ExtKeyUsage = usages.ExtKeyUsages
-	} else {
-		template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-	}
-
-	return &template, nil
 }

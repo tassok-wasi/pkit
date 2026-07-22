@@ -22,7 +22,7 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	if lc.Limit == 0 && lc.Offset == 0 {
 		keys, err := query.ListAllKeys(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get keys from db: %w", err)
+			return fmt.Errorf("failed to fetch keys from database: %w", err)
 		}
 
 		if len(keys) == 0 {
@@ -50,7 +50,7 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			Offset: int64(lc.Offset),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get keys from db: %w", err)
+			return fmt.Errorf("failed to fetch keys from database: %w", err)
 		}
 
 		if len(keys) == 0 {

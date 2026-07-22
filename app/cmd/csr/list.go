@@ -17,11 +17,11 @@ type ListCmd struct {
 
 // unifiedCSR normalizes the fields from different query row models
 type unifiedCSR struct {
-	ID                      int64
-	CommonName              string
-	KeyName                 string
-	Status                  string
-	CertificateSerialNumber sql.NullString
+	ID            int64
+	CommonName    string
+	KeyID         int64
+	Status        string
+	CertificateID sql.NullInt64
 }
 
 func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
@@ -35,15 +35,15 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 	if lc.Limit == 0 && lc.Offset == 0 {
 		csrs, err := query.ListAllCSRs(ctx, statusFilter)
 		if err != nil {
-			return fmt.Errorf("failed to get CSRs from db: %w", err)
+			return fmt.Errorf("failed to fetch CSRs from database: %w", err)
 		}
 		for _, c := range csrs {
 			unifiedList = append(unifiedList, unifiedCSR{
-				ID:                      c.ID,
-				CommonName:              c.CommonName,
-				KeyName:                 c.KeyName,
-				Status:                  c.Status,
-				CertificateSerialNumber: c.CertificateSerialNumber,
+				ID:            c.ID,
+				CommonName:    c.CommonName,
+				KeyID:         c.KeyID,
+				Status:        c.Status,
+				CertificateID: c.CertificateID,
 			})
 		}
 	} else {
@@ -53,15 +53,15 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 			Offset: int64(lc.Offset),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get CSRs from db: %w", err)
+			return fmt.Errorf("failed to fetch CSRs from database: %w", err)
 		}
 		for _, c := range csrs {
 			unifiedList = append(unifiedList, unifiedCSR{
-				ID:                      c.ID,
-				CommonName:              c.CommonName,
-				KeyName:                 c.KeyName,
-				Status:                  c.Status,
-				CertificateSerialNumber: c.CertificateSerialNumber,
+				ID:            c.ID,
+				CommonName:    c.CommonName,
+				KeyID:         c.KeyID,
+				Status:        c.Status,
+				CertificateID: c.CertificateID,
 			})
 		}
 	}
@@ -74,31 +74,31 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 
 	if lc.Status == "SIGNED" {
-		fmt.Fprintln(w, "ID\tCOMMON NAME\tKEY NAME\tSTATUS\tCERTIFICATE SERIAL NUMBER")
-		fmt.Fprintln(w, "--\t-----------\t--------\t------\t-------------------------")
+		fmt.Fprintln(w, "ID\tCOMMON NAME\tKEY ID\tSTATUS\tCERTIFICATE SERIAL NUMBER")
+		fmt.Fprintln(w, "--\t-----------\t------\t------\t-------------------------")
 	} else {
-		fmt.Fprintln(w, "ID\tCOMMON NAME\tKEY NAME\tSTATUS")
-		fmt.Fprintln(w, "--\t-----------\t--------\t------")
+		fmt.Fprintln(w, "ID\tCOMMON NAME\tKEY ID\tSTATUS")
+		fmt.Fprintln(w, "--\t-----------\t------\t------")
 	}
 
 	for _, csr := range unifiedList {
 		if lc.Status == "SIGNED" {
-			serial := "-"
-			if csr.CertificateSerialNumber.Valid {
-				serial = csr.CertificateSerialNumber.String
+			certID := sql.NullInt64{Int64: 0, Valid: false}
+			if csr.CertificateID.Valid {
+				certID = csr.CertificateID
 			}
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%d\n",
 				csr.ID,
 				csr.CommonName,
-				csr.KeyName,
+				csr.KeyID,
 				csr.Status,
-				serial,
+				certID.Int64,
 			)
 		} else {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%d\t%s\t%d\t%s\n",
 				csr.ID,
 				csr.CommonName,
-				csr.KeyName,
+				csr.KeyID,
 				csr.Status,
 			)
 		}

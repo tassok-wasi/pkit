@@ -1,4 +1,4 @@
-package cert
+package exp
 
 import (
 	"certman/app/utils"
@@ -12,19 +12,19 @@ import (
 	"strings"
 )
 
-type ExportCmd struct {
+type SingleCmd struct {
 	ID     int64  `arg:"" help:"ID of the Certificate to Export."`
-	Path   string `name:"path" short:"p" type:"path" help:"Path to export the file. [file name must be omitted]"`
+	Path   string `name:"path" short:"p" help:"Destination directory or file path."`
 	Format string `name:"format" short:"f" default:"pem" help:"Specific format to export (e.g., pem, der)"`
 }
 
-func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
-	dbCert, err := query.GetCertificateByID(ctx, ec.ID)
+func (sc *SingleCmd) Run(ctx context.Context, query base.Querier) error {
+	dbCert, err := query.GetCertificateByID(ctx, sc.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get Certificate from db: %w", err)
 	}
 
-	format := strings.ToLower(strings.TrimSpace(ec.Format))
+	format := strings.ToLower(strings.TrimSpace(sc.Format))
 	if format == "" {
 		format = "pem"
 	}
@@ -46,22 +46,20 @@ func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 		data = block.Bytes
 
 	default:
-		return fmt.Errorf("unsupported format '%s': expected 'pem' or 'der'", ec.Format)
+		return fmt.Errorf("unsupported format '%s': expected 'pem' or 'der'", sc.Format)
 	}
 
-	var outputDir string
-	if ec.Path != "" {
-		outputDir, err = utils.JoinHomeDir(ec.Path)
-		if err != nil {
-			return fmt.Errorf("failed to resolve output path: %w", err)
-		}
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("failed to create target directory: %w", err)
-		}
+	certFilePath, err := utils.ResolveDestinationPath(sc.Path, dbCert.CommonName, ext)
+	if err != nil {
+		return fmt.Errorf("failed to resolve target path: %w", err)
 	}
 
-	filename := utils.SanitizeFilename(dbCert.CommonName, "exported_certificate") + ext
-	certFilePath := filepath.Join(outputDir, filename)
+	targetDir := filepath.Dir(certFilePath)
+	if targetDir != "." && targetDir != "" {
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
+		}
+	}
 
 	if err := os.WriteFile(certFilePath, data, 0o644); err != nil {
 		return fmt.Errorf("could not write to file %s: %w", certFilePath, err)
