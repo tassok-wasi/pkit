@@ -44,7 +44,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	dbKey, err := query.GetKeyByID(ctx, lc.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch Key from database: %w", err)
+		return fmt.Errorf("failed to fetch Key from DB: %w", err)
 	}
 
 	privateKey, publicKey, err := utils.ParseKeys([]byte(dbKey.PrivateKeyPem), []byte(dbKey.PublicKeyPem))
@@ -54,7 +54,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	issuerDBCert, err := query.GetCertificateByID(ctx, lc.IssuerID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch issuer Certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch issuer Certificate from DB: %w", err)
 	}
 	issuerCert, err := utils.ParseCertificate([]byte(issuerDBCert.CertificatePem))
 	if err != nil {
@@ -63,7 +63,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	issuerKeys, err := query.GetKeyByID(ctx, issuerDBCert.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch key from database: %w", err)
+		return fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
 
 	issuerPrivateKey, _, err := utils.ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
@@ -130,7 +130,7 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 		CertificatePem:     string(certPem),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create Certificate in database: %w", err)
+		return fmt.Errorf("failed to create Certificate in DB: %w", err)
 	}
 
 	log.Println("Success: successfully Created Certificate.")

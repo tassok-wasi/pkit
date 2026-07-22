@@ -33,7 +33,7 @@ type GenerateCmd struct {
 func (gc *GenerateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {
 	dbKey, err := query.GetKeyByID(ctx, gc.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch Key from database: %w", err)
+		return fmt.Errorf("failed to fetch Key from DB: %w", err)
 	}
 
 	privateKey, _, err := utils.ParseKeys([]byte(dbKey.PrivateKeyPem), []byte(dbKey.PublicKeyPem))
@@ -85,7 +85,7 @@ func (gc *GenerateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) 
 		CertificateID: sql.NullInt64{Int64: 0, Valid: false},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create CSR in database: %w", err)
+		return fmt.Errorf("failed to create CSR in DB: %w", err)
 	}
 
 	log.Println("Success: successfully Created Certificate Signing Request.")

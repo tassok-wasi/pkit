@@ -19,7 +19,7 @@ type VerifyCmd struct {
 func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, int64(vc.ID))
 	if err != nil {
-		return fmt.Errorf("failed to fetch Certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch Certificate from DB: %w", err)
 	}
 	cert, err := utils.ParseCertificate([]byte(dbCert.CertificatePem))
 	if err != nil {

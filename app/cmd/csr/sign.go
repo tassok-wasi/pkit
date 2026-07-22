@@ -35,7 +35,7 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	dbCsr, err := query.GetCSRByID(ctx, sc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CSR from database: %w", err)
+		return fmt.Errorf("failed to fetch CSR from DB: %w", err)
 	}
 
 	csrBlock, _ := pem.Decode([]byte(dbCsr.CsrPem))
@@ -50,11 +50,11 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 
 	issuerDBCert, err := query.GetCertificateByID(ctx, int64(sc.IssuerID))
 	if err != nil {
-		return fmt.Errorf("failed to fetch Certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch Certificate from DB: %w", err)
 	}
 	issuerDBKeys, err := query.GetKeyByID(ctx, issuerDBCert.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch issuer keys from database: %w", err)
+		return fmt.Errorf("failed to fetch issuer keys from DB: %w", err)
 	}
 
 	issuerCert, err := utils.ParseCertificate([]byte(issuerDBCert.CertificatePem))
@@ -112,7 +112,7 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			CertificatePem:     certPemBytes,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create Certificate in database: %w", err)
+			return fmt.Errorf("failed to create Certificate in DB: %w", err)
 		}
 
 		err = txQuerier.UpdateCSRStatus(ctx, base.UpdateCSRStatusParams{

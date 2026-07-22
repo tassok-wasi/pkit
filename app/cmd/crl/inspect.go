@@ -18,7 +18,7 @@ type InspectCmd struct {
 func (ic *InspectCmd) Run(ctx context.Context, query base.Querier) error {
 	crlRecord, err := query.GetCRLByID(ctx, ic.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CRL from database: %w", err)
+		return fmt.Errorf("failed to fetch CRL from DB: %w", err)
 	}
 
 	block, _ := pem.Decode([]byte(crlRecord.CrlPem))

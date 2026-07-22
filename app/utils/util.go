@@ -531,3 +531,17 @@ func ResolveDestinationPath(inputPath, defaultName, defaultExt string) (string, 
 
 	return resolvedPath, nil
 }
+
+func ReadFile(path string) ([]byte, error) {
+	fullPath, err := JoinHomeDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return bytes, nil
+}

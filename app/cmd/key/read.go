@@ -16,7 +16,7 @@ type ReadCmd struct {
 func (rc *ReadCmd) Run(ctx context.Context, query base.Querier) error {
 	key, err := query.GetKeyByID(ctx, int64(rc.ID))
 	if err != nil {
-		return fmt.Errorf("failed to fetch key from database: %w", err)
+		return fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
 
 	fmt.Printf("\u2022 Name: %s\n", key.Name)

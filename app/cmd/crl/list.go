@@ -23,7 +23,7 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 	if lc.Limit == 0 && lc.Offset == 0 {
 		crls, err := query.ListAllCRLs(ctx, lc.IssuerID)
 		if err != nil {
-			return fmt.Errorf("failed to fetch CRLs from database: %w", err)
+			return fmt.Errorf("failed to fetch CRLs from DB: %w", err)
 		}
 
 		if len(crls) == 0 {
@@ -51,7 +51,7 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 			Offset:   int64(lc.Offset),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to fetch CRLs from database: %w", err)
+			return fmt.Errorf("failed to fetch CRLs from DB: %w", err)
 		}
 
 		if len(crls) == 0 {

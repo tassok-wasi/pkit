@@ -14,7 +14,7 @@ type ReadCmd struct {
 func (rc *ReadCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, rc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch certificate from DB: %w", err)
 	}
 
 	cert, err := utils.ParseCertificate([]byte(dbCert.CertificatePem))

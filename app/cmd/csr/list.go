@@ -35,7 +35,7 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 	if lc.Limit == 0 && lc.Offset == 0 {
 		csrs, err := query.ListAllCSRs(ctx, statusFilter)
 		if err != nil {
-			return fmt.Errorf("failed to fetch CSRs from database: %w", err)
+			return fmt.Errorf("failed to fetch CSRs from DB: %w", err)
 		}
 		for _, c := range csrs {
 			unifiedList = append(unifiedList, unifiedCSR{
@@ -53,7 +53,7 @@ func (lc *ListCmd) Run(ctx context.Context, query base.Querier) error {
 			Offset: int64(lc.Offset),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to fetch CSRs from database: %w", err)
+			return fmt.Errorf("failed to fetch CSRs from DB: %w", err)
 		}
 		for _, c := range csrs {
 			unifiedList = append(unifiedList, unifiedCSR{

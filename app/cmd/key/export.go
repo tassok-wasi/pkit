@@ -22,7 +22,7 @@ type ExportCmd struct {
 func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 	key, err := query.GetKeyByID(ctx, ec.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch key from database: %w", err)
+		return fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
 
 	format := strings.ToLower(strings.TrimSpace(ec.Format))

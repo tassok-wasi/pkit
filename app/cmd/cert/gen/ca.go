@@ -36,7 +36,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 
 	dbKey, err := query.GetKeyByID(ctx, cc.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to get Key from database: %w", err)
+		return fmt.Errorf("failed to get Key from DB: %w", err)
 	}
 
 	privateKey, publicKey, err := utils.ParseKeys([]byte(dbKey.PrivateKeyPem), []byte(dbKey.PublicKeyPem))
@@ -72,7 +72,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 		return fmt.Errorf("failed to generate CA Certificate: %w", err)
 	}
 
-	// ------------------------- WRITING TO THE DATABASE ------------------------------
+	// ------------------------- WRITING TO THE DB ------------------------------
 
 	certPem := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
@@ -103,7 +103,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 		CertificatePem:     string(certPem),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create Certificate in database: %w", err)
+		return fmt.Errorf("failed to create Certificate in DB: %w", err)
 	}
 
 	log.Println("Success: successfully Created Certificate.")

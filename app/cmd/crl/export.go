@@ -21,7 +21,7 @@ type ExportCmd struct {
 func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 	crl, err := query.GetCRLByID(ctx, ec.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CRL from database: %w", err)
+		return fmt.Errorf("failed to fetch CRL from DB: %w", err)
 	}
 
 	format := strings.ToLower(strings.TrimSpace(ec.Format))

@@ -37,7 +37,7 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			Type:   typeFilter,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to fetch certificates from database: %w", err)
+			return fmt.Errorf("failed to fetch certificates from DB: %w", err)
 		}
 		for _, c := range certs {
 			list = append(list, unifiedCert{
@@ -56,7 +56,7 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			Offset: int64(lc.Offset),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to fetch certificates from database: %w", err)
+			return fmt.Errorf("failed to fetch certificates from DB: %w", err)
 		}
 		for _, c := range certs {
 			list = append(list, unifiedCert{

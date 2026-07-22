@@ -110,7 +110,7 @@ func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
 		CrlPem:     generatedCrlPem,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to save generated CRL to database: %w", err)
+		return fmt.Errorf("failed to save generated CRL to DB: %w", err)
 	}
 	return nil
 }

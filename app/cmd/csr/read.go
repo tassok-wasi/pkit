@@ -14,7 +14,7 @@ type ReadCmd struct {
 func (rc *ReadCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCsr, err := query.GetCSRByID(ctx, rc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CSR from database: %w", err)
+		return fmt.Errorf("failed to fetch CSR from DB: %w", err)
 	}
 
 	pemData := strings.TrimSpace(dbCsr.CsrPem)

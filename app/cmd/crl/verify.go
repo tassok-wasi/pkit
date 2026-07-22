@@ -15,7 +15,7 @@ type VerifyCmd struct {
 func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	crlRecord, err := query.GetCRLByID(ctx, vc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch CRL from database: %w", err)
+		return fmt.Errorf("failed to fetch CRL from DB: %w", err)
 	}
 
 	issuerDBCert, err := query.GetCertificateByID(ctx, crlRecord.ID)

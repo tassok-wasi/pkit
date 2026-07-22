@@ -45,7 +45,7 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 
 	dbKey, err := query.GetKeyByID(ctx, ic.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch certificate from DB: %w", err)
 	}
 
 	privateKey, publicKey, err := utils.ParseKeys([]byte(dbKey.PrivateKeyPem), []byte(dbKey.PublicKeyPem))
@@ -55,7 +55,7 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 
 	issuerDBCert, err := query.GetCertificateByID(ctx, ic.IssuerID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch issuer Certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch issuer Certificate from DB: %w", err)
 	}
 	issuerCert, err := utils.ParseCertificate([]byte(issuerDBCert.CertificatePem))
 	if err != nil {
@@ -64,7 +64,7 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 
 	issuerKeys, err := query.GetKeyByID(ctx, issuerDBCert.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch key from database: %w", err)
+		return fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
 
 	issuerPrivateKey, _, err := utils.ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
@@ -107,7 +107,7 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 		return fmt.Errorf("cannot generate Intermediate CA Certificate: %w", err)
 	}
 
-	// -------------------------------- WRITING TO THE DATABASE --------------------------------------
+	// -------------------------------- WRITING TO THE DB --------------------------------------
 
 	certPem := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
@@ -131,7 +131,7 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 		CertificatePem:     string(certPem),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create Certificate in database: %w", err)
+		return fmt.Errorf("failed to create Certificate in DB: %w", err)
 	}
 
 	log.Println("Success: successfully Created Certificate.")

@@ -31,7 +31,7 @@ func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
 		PublicKeyPem:  pubPem,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create Key Pair in the database: %w", err)
+		return fmt.Errorf("failed to create Key Pair in DB: %w", err)
 	}
 
 	return nil

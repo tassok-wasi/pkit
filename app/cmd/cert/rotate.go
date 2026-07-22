@@ -24,7 +24,7 @@ type RotateCmd struct {
 func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, rc.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch certificate from database: %w", err)
+		return fmt.Errorf("failed to fetch certificate from DB: %w", err)
 	}
 	cert, err := utils.ParseCertificate([]byte(dbCert.CertificatePem))
 	if err != nil {
@@ -33,7 +33,7 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 
 	keyPair, err := query.GetKeyByID(ctx, rc.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch Key from database: %w", err)
+		return fmt.Errorf("failed to fetch Key from DB: %w", err)
 	}
 
 	privateKey, publicKey, err := utils.ParseKeys([]byte(keyPair.PrivateKeyPem), []byte(keyPair.PublicKeyPem))
@@ -58,7 +58,7 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 
 		issuerDBCert, err := query.GetCertificateByID(ctx, rc.IssuerID)
 		if err != nil {
-			return fmt.Errorf("failed to fetch Issuer Certificate from database: %w", err)
+			return fmt.Errorf("failed to fetch Issuer Certificate from DB: %w", err)
 		}
 
 		issuerCert, err = utils.ParseCertificate([]byte(issuerDBCert.CertificatePem))
@@ -76,7 +76,7 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 
 		issuerKeys, err := query.GetKeyByID(ctx, issuerDBCert.KeyID)
 		if err != nil {
-			return fmt.Errorf("failed to fetch Issuer key from database: %w", err)
+			return fmt.Errorf("failed to fetch Issuer key from DB: %w", err)
 		}
 
 		issuerPrivateKey, _, err = utils.ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
@@ -149,7 +149,7 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 			CertificatePem:     string(newCertPem),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to insert new rotated Certificate in database: %w", err)
+			return fmt.Errorf("failed to insert new rotated Certificate in DB: %w", err)
 		}
 
 		_, err = txQuerier.UpdateCertificate(ctx, base.UpdateCertificateParams{
@@ -157,7 +157,7 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 			SerialNumber: dbCert.SerialNumber,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update old Certificate status in database: %w", err)
+			return fmt.Errorf("failed to update old Certificate status in DB: %w", err)
 		}
 
 		return nil
