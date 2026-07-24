@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"pkit/domain"
-	"pkit/utils"
 	_db_ "pkit/db"
 	"pkit/db/base"
+	"pkit/domain"
+	"pkit/utils"
 	"time"
 )
 
@@ -60,6 +60,10 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 	var issuerPrivateKey any
 	var issuerSerial string
 
+	if dbCert.IsRevoked.Valid && dbCert.IsRevoked.Int64 == 1 {
+		return fmt.Errorf("failed to rotate certificate: certificate is revoked")
+	}
+
 	if certType == domain.TypeRootCA {
 		issuerCert = nil
 		issuerPrivateKey = nil
@@ -79,6 +83,9 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 			return fmt.Errorf("failed to parse Issuer Certificate: %w", err)
 		}
 
+		if issuerDBCert.IsRevoked.Valid && issuerDBCert.IsRevoked.Int64 == 1 {
+			return fmt.Errorf("failed to rotate certificate: specified issuer (ID: %d) is revoked", rc.IssuerID)
+		}
 		if !issuerCert.IsCA {
 			return fmt.Errorf("specified issuer (ID: %d) is not a valid CA (IsCA=false)", rc.IssuerID)
 		}
@@ -97,7 +104,7 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 			return fmt.Errorf("failed to parse Issuer private key: %w", err)
 		}
 
-		issuerSerial = fmt.Sprintf("%x", issuerCert.SerialNumber)
+		issuerSerial = issuerDBCert.SerialNumber
 	}
 
 	var pathLen *int
@@ -166,8 +173,11 @@ func (rc *RotateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) er
 		}
 
 		_, err = txQuerier.UpdateCertificate(ctx, base.UpdateCertificateParams{
-			Status:       sql.NullString{String: "REVOKED", Valid: true},
-			SerialNumber: dbCert.SerialNumber,
+			Status:           sql.NullString{String: "REVOKED", Valid: true},
+			IsRevoked:        sql.NullInt64{Int64: 1, Valid: true},
+			RevocationTime:   sql.NullTime{Time: time.Now(), Valid: true},
+			RevocationReason: sql.NullInt64{Int64: 4, Valid: true},
+			SerialNumber:     dbCert.SerialNumber,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update old Certificate status in DB: %w", err)

@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package gen
 
 import (
@@ -22,9 +23,9 @@ import (
 	"fmt"
 	"log"
 
+	"pkit/db/base"
 	"pkit/domain"
 	"pkit/utils"
-	"pkit/db/base"
 )
 
 type ICACmd struct {
@@ -74,6 +75,12 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 	if err != nil {
 		return err
 	}
+	if issuerDBCert.IsRevoked.Valid && issuerDBCert.IsRevoked.Int64 == 1 {
+		return fmt.Errorf("failed to fetch issuer Certificate from DB: issuer certificate is revoked")
+	}
+	if !issuerCert.IsCA {
+		return fmt.Errorf("failed to fetch issuer Certificate from DB: issuer certificate is not a CA")
+	}
 
 	issuerKeys, err := query.GetKeyByID(ctx, issuerDBCert.KeyID)
 	if err != nil {
@@ -81,6 +88,15 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 	}
 
 	issuerPrivateKey, _, err := utils.ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
+	if err != nil {
+		return err
+	}
+
+	netIps, err := utils.ToNetIPs(ic.IPAddresses)
+	if err != nil {
+		return err
+	}
+	urls, err := utils.ToURLs(ic.URIs)
 	if err != nil {
 		return err
 	}
@@ -100,8 +116,8 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 		SANs: domain.SANs{
 			DNSNames:       ic.DNSNames,
 			EmailAddresses: ic.EmailAddresses,
-			IPAddresses:    utils.ToNetIPs(ic.IPAddresses),
-			URIs:           utils.ToURLs(ic.URIs),
+			IPAddresses:    netIps,
+			URIs:           urls,
 		},
 		TTLInHours: hours,
 		KeyPair: &domain.KeyPair{
@@ -133,12 +149,13 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 	_, err = query.CreateCertificate(ctx, base.CreateCertificateParams{
 		SerialNumber:       fmt.Sprintf("%x", icaCert.SerialNumber),
 		CommonName:         icaCert.Subject.CommonName,
-		Type:               "INTERMEDIATE-CA",
+		Type:               string(domain.TypeIntermediate),
 		KeyID:              dbKey.ID,
-		IssuerSerialNumber: sql.NullString{String: fmt.Sprintf("%x", issuerDBCert.SerialNumber), Valid: true},
+		IssuerSerialNumber: sql.NullString{String: issuerDBCert.SerialNumber, Valid: true},
 		Skid:               skidHex,
 		Akid:               akidHex,
 		Status:             "ACTIVE",
+		IsRevoked:          sql.NullInt64{Int64: 0, Valid: true},
 		NotBefore:          icaCert.NotBefore,
 		NotAfter:           icaCert.NotAfter,
 		CertificatePem:     string(certPem),

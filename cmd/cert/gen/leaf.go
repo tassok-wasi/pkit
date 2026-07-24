@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package gen
 
 import (
@@ -22,9 +23,9 @@ import (
 	"fmt"
 	"log"
 
+	"pkit/db/base"
 	"pkit/domain"
 	"pkit/utils"
-	"pkit/db/base"
 )
 
 type LeafCmd struct {
@@ -73,6 +74,12 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	if err != nil {
 		return err
 	}
+	if issuerDBCert.IsRevoked.Valid && issuerDBCert.IsRevoked.Int64 == 1 {
+		return fmt.Errorf("failed to fetch issuer Certificate from DB: issuer certificate is revoked")
+	}
+	if !issuerCert.IsCA {
+		return fmt.Errorf("failed to fetch issuer Certificate from DB: issuer certificate is not a CA")
+	}
 
 	issuerKeys, err := query.GetKeyByID(ctx, issuerDBCert.KeyID)
 	if err != nil {
@@ -80,6 +87,15 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	}
 
 	issuerPrivateKey, _, err := utils.ParseKeys([]byte(issuerKeys.PrivateKeyPem), []byte(issuerKeys.PublicKeyPem))
+	if err != nil {
+		return err
+	}
+
+	netIps, err := utils.ToNetIPs(lc.IPAddresses)
+	if err != nil {
+		return err
+	}
+	urls, err := utils.ToURLs(lc.URIs)
 	if err != nil {
 		return err
 	}
@@ -99,8 +115,8 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 		SANs: domain.SANs{
 			DNSNames:       lc.DNSNames,
 			EmailAddresses: lc.EmailAddresses,
-			IPAddresses:    utils.ToNetIPs(lc.IPAddresses),
-			URIs:           utils.ToURLs(lc.URIs),
+			IPAddresses:    netIps,
+			URIs:           urls,
 		},
 		TTLInHours: hours,
 		KeyPair: &domain.KeyPair{
@@ -132,12 +148,13 @@ func (lc *LeafCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	_, err = query.CreateCertificate(ctx, base.CreateCertificateParams{
 		SerialNumber:       fmt.Sprintf("%x", leafCert.SerialNumber),
 		CommonName:         leafCert.Subject.CommonName,
-		Type:               "LEAF",
+		Type:               string(domain.TypeLeaf),
 		KeyID:              dbKey.ID,
-		IssuerSerialNumber: sql.NullString{String: fmt.Sprintf("%x", issuerCert.SerialNumber), Valid: false},
+		IssuerSerialNumber: sql.NullString{String: issuerDBCert.SerialNumber, Valid: true},
 		Skid:               skidHex,
 		Akid:               akidHex,
 		Status:             "ACTIVE",
+		IsRevoked:          sql.NullInt64{Int64: 0, Valid: true},
 		NotBefore:          leafCert.NotBefore,
 		NotAfter:           leafCert.NotAfter,
 		CertificatePem:     string(certPem),

@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package csr
 
 import (
@@ -21,8 +22,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"pkit/utils"
+	"strings"
+
 	"pkit/db/base"
+	"pkit/utils"
 )
 
 type GenerateCmd struct {
@@ -54,7 +57,23 @@ func (gc *GenerateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) 
 		return err
 	}
 
-	signatureAlgo, err := utils.GetSignatureAlgorithm(gc.KeyType)
+	keyType := strings.ToLower(strings.TrimSpace(dbKey.Algorithm))
+	if keyType == "" {
+		keyType = strings.ToLower(strings.TrimSpace(gc.KeyType))
+		if keyType == "" {
+			keyType = "ecdsa-256"
+		}
+	}
+	signatureAlgo, err := utils.GetSignatureAlgorithm(keyType)
+	if err != nil {
+		return err
+	}
+
+	netIps, err := utils.ToNetIPs(gc.IPAddresses)
+	if err != nil {
+		return err
+	}
+	urls, err := utils.ToURLs(gc.URIs)
 	if err != nil {
 		return err
 	}
@@ -72,8 +91,8 @@ func (gc *GenerateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) 
 		},
 		DNSNames:       gc.DNSNames,
 		EmailAddresses: gc.EmailAddresses,
-		IPAddresses:    utils.ToNetIPs(gc.IPAddresses),
-		URIs:           utils.ToURLs(gc.URIs),
+		IPAddresses:    netIps,
+		URIs:           urls,
 
 		SignatureAlgorithm: signatureAlgo,
 	}

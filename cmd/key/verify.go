@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package key
 
 import (
@@ -21,8 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"pkit/utils"
+
 	"pkit/db/base"
+	"pkit/utils"
 )
 
 type VerifyCmd struct {
@@ -38,14 +40,13 @@ func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	if err != nil {
 		return err
 	}
-	var keyName string
 
-	keys, err := query.GetKeyByName(ctx, keyName)
+	key, err := query.GetKeyByID(ctx, dbCert.KeyID)
 	if err != nil {
 		return fmt.Errorf("failed to get key: %w", err)
 	}
 
-	privateKey, _, err := utils.ParseKeys([]byte(keys.PrivateKeyPem), []byte(keys.PublicKeyPem))
+	privateKey, _, err := utils.ParseKeys([]byte(key.PrivateKeyPem), []byte(key.PublicKeyPem))
 	if err != nil {
 		return err
 	}

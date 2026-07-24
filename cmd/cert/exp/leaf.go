@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package exp
 
 import (
@@ -20,9 +21,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"pkit/utils"
-	"pkit/db/base"
 	"strings"
+
+	"pkit/db/base"
+	"pkit/utils"
 )
 
 type LeafCmd struct {
@@ -62,7 +64,7 @@ func (sc *LeafCmd) Run(ctx context.Context, query base.Querier) error {
 		return fmt.Errorf("unsupported format '%s': expected 'pem' or 'der'", sc.Format)
 	}
 
-	certFilePath, err := utils.ResolveDestinationPath(sc.Path, dbCert.CommonName, ext)
+	certFilePath, err := utils.ResolveDestinationPath(sc.Path, utils.ToSnakeCase(dbCert.CommonName), ext)
 	if err != nil {
 		return fmt.Errorf("failed to resolve target path: %w", err)
 	}
@@ -74,7 +76,7 @@ func (sc *LeafCmd) Run(ctx context.Context, query base.Querier) error {
 		}
 	}
 
-	if err := os.WriteFile(certFilePath, data, 0o644); err != nil {
+	if err := os.WriteFile(certFilePath, data, 0o600); err != nil {
 		return fmt.Errorf("could not write to file %s: %w", certFilePath, err)
 	}
 

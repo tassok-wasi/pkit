@@ -22,6 +22,7 @@ INSERT INTO certificates (
     skid,
     akid,
     status,
+    is_revoked,
     not_before,
     not_after,
     certificate_pem
@@ -34,6 +35,7 @@ INSERT INTO certificates (
     sqlc.arg('skid'),
     sqlc.arg('akid'),
     sqlc.arg('status'),
+    sqlc.arg('is_revoked'),
     sqlc.arg('not_before'),
     sqlc.arg('not_after'),
     sqlc.arg('certificate_pem')
@@ -102,6 +104,9 @@ SET
   skid = COALESCE(sqlc.narg('skid'), skid),
   akid = COALESCE(sqlc.narg('akid'), akid),
   status = COALESCE(sqlc.narg('status'), status),
+  is_revoked = COALESCE(sqlc.narg('is_revoked'), is_revoked),
+  revocation_reason = COALESCE(sqlc.narg('revocation_reason'), revocation_reason),
+  revocation_time = COALESCE(sqlc.narg('revocation_time'), revocation_time),
   not_before = COALESCE(sqlc.narg('not_before'), not_before),
   not_after = COALESCE(sqlc.narg('not_after'), not_after),
   certificate_pem = COALESCE(sqlc.narg('certificate_pem'), certificate_pem)

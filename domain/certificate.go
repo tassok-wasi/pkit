@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package domain
 
 import (
@@ -56,6 +57,9 @@ type CertOptions struct {
 func IssueCertificate(opts CertOptions) (*x509.Certificate, error) {
 	if opts.KeyPair == nil || opts.KeyPair.PublicKey == nil {
 		return nil, errors.New("target keypair with public key is required")
+	}
+	if opts.TTLInHours <= 0 {
+		return nil, errors.New("certificate TTL must be greater than zero")
 	}
 
 	serialNumber, err := utils.GetSerialNumber()
@@ -112,6 +116,9 @@ func IssueCertificate(opts CertOptions) (*x509.Certificate, error) {
 		}
 		if !opts.ParentCert.IsCA {
 			return nil, errors.New("parent certificate must be a CA")
+		}
+		if time.Now().After(opts.ParentCert.NotAfter) {
+			return nil, errors.New("parent certificate has expired")
 		}
 		template.AuthorityKeyId = opts.ParentCert.SubjectKeyId
 		signingCert = opts.ParentCert

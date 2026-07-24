@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package crl
 
 import (
@@ -24,10 +25,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"pkit/utils"
-	"pkit/db/base"
 	"strings"
 	"time"
+
+	"pkit/db/base"
+	"pkit/utils"
 )
 
 type GenerateCmd struct {
@@ -45,6 +47,9 @@ func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
 	if err != nil {
 		return err
 	}
+	if !issuerCert.IsCA {
+		return fmt.Errorf("failed to generate CRL: issuer is not a CA certificate")
+	}
 
 	if issuerDBCert.IsRevoked.Valid && issuerDBCert.IsRevoked.Int64 == 1 {
 		return fmt.Errorf("failed to generate CRL: Issuer itself is Revoked")
@@ -59,16 +64,19 @@ func (gc *GenerateCmd) Run(ctx context.Context, query base.Querier) error {
 		return fmt.Errorf("no Certificate has been Revoked from this Issuer")
 	}
 
+	var nextCRLNumber int64 = 1
 	latestCRL, err := query.GetLatestCRL(ctx, issuerDBCert.ID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch latest CRL: %w", err)
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("failed to fetch latest CRL: %w", err)
+		}
+	} else {
+		nextCRLNumber = int64(latestCRL.CrlNumber) + 1
 	}
 
-	nextCRLNumber := int64(latestCRL.CrlNumber) + 1
-
-	issuerKey, err := query.GetKeyByID(ctx, issuerDBCert.ID)
+	issuerKey, err := query.GetKeyByID(ctx, issuerDBCert.KeyID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch issuer private key (%d): %w", issuerDBCert.ID, err)
+		return fmt.Errorf("failed to fetch issuer private key (%d): %w", issuerDBCert.KeyID, err)
 	}
 
 	rawKey, _, err := utils.ParseKeys([]byte(issuerKey.PrivateKeyPem), []byte(issuerKey.PublicKeyPem))

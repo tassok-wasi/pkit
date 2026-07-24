@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package bundle
 
 import (
@@ -20,8 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"pkit/cmd/cert/exp/helper"
-	"pkit/utils"
 	"pkit/db/base"
+	"pkit/utils"
 
 	"software.sslmate.com/src/go-pkcs12"
 )
@@ -73,8 +74,8 @@ func (bc *BundleCmd) Run(ctx context.Context, query base.Querier) error {
 		}
 	}
 
-	defaultFileName := utils.SanitizeFilename(cert.Subject.CommonName, "bundle") + "_bundle" + ext
-	outPath, err := utils.ResolveDestinationPath(bc.Path, defaultFileName, ext)
+	defaultFileName := utils.SanitizeFilename(cert.Subject.CommonName, "bundle") + "_bundle"
+	outPath, err := utils.ResolveDestinationPath(bc.Path, utils.ToSnakeCase(defaultFileName), ext)
 	if err != nil {
 		return fmt.Errorf("failed to resolve target path: %w", err)
 	}

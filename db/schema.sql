@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS certificates (
     CHECK (type IN ('CA', 'INTERMEDIATE', 'LEAF')),
     CHECK (is_revoked IN (0, 1)),
     CHECK (status IN ('ACTIVE', 'REVOKED', 'EXPIRED')),
-    CHECK (status = 'REVOKED' AND is_revoked = 1)
+    CHECK (status != 'REVOKED' OR is_revoked = 1)
 );
 
 CREATE TABLE IF NOT EXISTS csrs (

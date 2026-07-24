@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package helper
 
 import (
@@ -18,8 +19,9 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
-	"pkit/utils"
+
 	"pkit/db/base"
+	"pkit/utils"
 )
 
 func GetCertificateChain(ctx context.Context, query base.Querier, current *x509.Certificate) ([]*x509.Certificate, error) {
@@ -27,7 +29,7 @@ func GetCertificateChain(ctx context.Context, query base.Querier, current *x509.
 
 	workingCert := current
 	const maxChainDepth = 10
-	for depth := range maxChainDepth {
+	for depth := 0; depth < maxChainDepth; depth++ {
 		if workingCert.Subject.String() == workingCert.Issuer.String() {
 			if depth == 0 {
 				return nil, fmt.Errorf("failed to build chain. Provided Certificate itself a Root CA Certificate")
@@ -38,15 +40,24 @@ func GetCertificateChain(ctx context.Context, query base.Querier, current *x509.
 		if len(workingCert.AuthorityKeyId) == 0 {
 			return nil, fmt.Errorf("failed to build chain. Chain ended early: %s lacks AKID", workingCert.Subject.CommonName)
 		}
+		if workingCert.Subject.String() != "" && workingCert.Issuer.String() != "" && workingCert.Subject.String() != workingCert.Issuer.String() && len(workingCert.AuthorityKeyId) == len(workingCert.SubjectKeyId) && string(workingCert.AuthorityKeyId) == string(workingCert.SubjectKeyId) {
+			return nil, fmt.Errorf("failed to build chain. Chain ended early: %s has self-referential AKID but is not self-issued", workingCert.Subject.CommonName)
+		}
 
 		akidHex := hex.EncodeToString(workingCert.AuthorityKeyId)
 		parentDBCert, err := query.GetCertificateBySKID(ctx, akidHex)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch Certificate from DB: %w", err)
 		}
+		if parentDBCert.CommonName != "" && workingCert.Issuer.CommonName != "" && parentDBCert.CommonName != workingCert.Issuer.CommonName {
+			return nil, fmt.Errorf("failed to build chain. Chain ended early: issuer mismatch for %s", workingCert.Subject.CommonName)
+		}
 		parentCert, err := utils.ParseCertificate([]byte(parentDBCert.CertificatePem))
 		if err != nil {
 			return nil, err
+		}
+		if workingCert.Issuer.String() != "" && parentCert.Subject.String() != workingCert.Issuer.String() {
+			return nil, fmt.Errorf("failed to build chain. Chain ended early: issuer mismatch for %s", workingCert.Subject.CommonName)
 		}
 
 		chain = append(chain, parentCert)

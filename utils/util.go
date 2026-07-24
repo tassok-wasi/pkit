@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package utils
 
 import (
@@ -24,7 +25,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"net"
 	"net/url"
@@ -45,41 +45,46 @@ func ToNetIP(addr string) (net.IP, error) {
 	return parsedIP, nil
 }
 
-func ToNetIPs(addrs []string) []net.IP {
+func ToNetIPs(addrs []string) ([]net.IP, error) {
 	var netIPs []net.IP
 
-	for _, ip := range addrs {
-		netIP, err := ToNetIP(ip)
+	for _, ipStr := range addrs {
+		netIP, err := ToNetIP(ipStr)
 		if err != nil {
-			log.Printf("skipping invalid IP string: %s\n", ip)
-			continue
+			return nil, fmt.Errorf("invalid IP address %q: %w", ipStr, err)
 		}
 		netIPs = append(netIPs, netIP)
 	}
-	return netIPs
+	return netIPs, nil
 }
 
 func ToURL(s string) (*url.URL, error) {
-	parsedUrl, err := url.Parse(s)
+	trimmed := strings.TrimSpace(s)
+	parsedURL, err := url.Parse(trimmed)
 	if err != nil {
 		return nil, errors.New("unknown or invalid url")
 	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return nil, errors.New("unknown or invalid url")
+	}
+	if parsedURL.User != nil {
+		return nil, errors.New("unknown or invalid url")
+	}
 
-	return parsedUrl, nil
+	return parsedURL, nil
 }
 
-func ToURLs(urls []string) []*url.URL {
+func ToURLs(urls []string) ([]*url.URL, error) {
 	var urlURLs []*url.URL
 
 	for _, urlStr := range urls {
 		u, err := ToURL(urlStr)
 		if err != nil {
-			log.Printf("skipping invalid URL string: %s\n", urlStr)
-			continue
+			return nil, fmt.Errorf("invalid URL %q: %w", urlStr, err)
 		}
 		urlURLs = append(urlURLs, u)
 	}
-	return urlURLs
+	return urlURLs, nil
 }
 
 func GetSerialNumber() (*big.Int, error) {
@@ -266,6 +271,9 @@ func ParseTTLToHours(ttlStr string) (int, error) {
 	value, err := strconv.Atoi(matches[1])
 	if err != nil {
 		return 0, fmt.Errorf("invalid number in duration: %v", err)
+	}
+	if value <= 0 {
+		return 0, fmt.Errorf("duration must be greater than zero")
 	}
 
 	unit := matches[2]
@@ -572,7 +580,7 @@ func GetSignatureAlgorithm(keyType string) (x509.SignatureAlgorithm, error) {
 }
 
 func ResolveDestinationPath(inputPath, defaultName, defaultExt string) (string, error) {
-	defaultFilename := SanitizeFilename(defaultName, "exported_item") + defaultExt
+	defaultFilename := SanitizeFilename(strings.ToLower(defaultName), "exported_item") + defaultExt
 	if inputPath == "" {
 		return defaultFilename, nil
 	}

@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package csr
 
 import (
@@ -20,9 +21,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"pkit/db/base"
 	"strings"
 	"text/tabwriter"
+
+	"pkit/db/base"
 )
 
 type InspectCmd struct {
@@ -90,14 +92,15 @@ func (ic *InspectCmd) Run(ctx context.Context, query base.Querier) error {
 		fmt.Fprintf(w, "Email SANs\t%s\n", strings.Join(csr.EmailAddresses, ", "))
 	}
 
-	serialNumber, err := query.GetCertificateSerialNumberByID(ctx, dbCsr.CertificateID.Int64)
-	if err != nil {
-		return fmt.Errorf("failed to get Certificate Serial Number from db: %w", err)
-	}
-
 	// Linked Certificate Serial (if already signed)
-	if serialNumber != "" {
-		fmt.Fprintf(w, "Signed Cert Serial\t%s\n", serialNumber)
+	if dbCsr.CertificateID.Valid {
+		serialNumber, err := query.GetCertificateSerialNumberByID(ctx, dbCsr.CertificateID.Int64)
+		if err != nil {
+			return fmt.Errorf("failed to get Certificate Serial Number from db: %w", err)
+		}
+		if serialNumber != "" {
+			fmt.Fprintf(w, "Signed Cert Serial\t%s\n", serialNumber)
+		}
 	}
 
 	w.Flush()

@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package key
 
 import (
@@ -20,9 +21,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"pkit/utils"
-	"pkit/db/base"
 	"strings"
+
+	"pkit/db/base"
+	"pkit/utils"
 )
 
 type ExportCmd struct {
@@ -57,7 +59,7 @@ func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 
 	targetDir := filepath.Dir(privKeyFilePath)
 	if targetDir != "." && targetDir != "" {
-		if err := os.MkdirAll(targetDir, 0755); err != nil {
+		if err := os.MkdirAll(targetDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
 		}
 	}
@@ -132,7 +134,8 @@ func resolveKeyDestinationPaths(inputPath, keyName, ext string) (string, string,
 	fi, err := os.Stat(resolvedPath)
 	isDir := err == nil && fi.IsDir()
 
-	if isDir || strings.HasSuffix(inputPath, "/") || strings.HasSuffix(inputPath, "\\") {
+	// If path exists and is a dir, or explicitly ends with slash, or has NO extension (e.g. /path/to/target_dir)
+	if isDir || strings.HasSuffix(inputPath, "/") || strings.HasSuffix(inputPath, "\\") || filepath.Ext(resolvedPath) == "" {
 		privPath := filepath.Join(resolvedPath, sanitizedBase+"_private_key"+ext)
 		pubPath := filepath.Join(resolvedPath, sanitizedBase+"_public_key"+ext)
 		return privPath, pubPath, nil

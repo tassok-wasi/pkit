@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"pkit/utils"
 	"pkit/db/base"
+	"pkit/utils"
 	"time"
 )
 
@@ -34,8 +34,7 @@ func (rc *RevokeCmd) Run(ctx context.Context, query base.Querier) error {
 	}
 
 	if dbCert.IsRevoked.Int64 == 1 {
-		fmt.Println("Certificate is already Revoked!")
-		return nil
+		return fmt.Errorf("certificate with ID %d is already revoked", rc.ID)
 	}
 
 	revReasonCode, err := utils.ParseRevocationReason(rc.Reason)
@@ -44,6 +43,7 @@ func (rc *RevokeCmd) Run(ctx context.Context, query base.Querier) error {
 	}
 
 	_, err = query.RevokeCertificate(ctx, base.RevokeCertificateParams{
+		Status:           "REVOKED",
 		IsRevoked:        sql.NullInt64{Int64: 1, Valid: true},
 		RevocationTime:   sql.NullTime{Time: time.Now(), Valid: true},
 		RevocationReason: sql.NullInt64{Int64: int64(revReasonCode), Valid: true},

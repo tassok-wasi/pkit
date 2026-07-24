@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package csr
 
 import (
@@ -22,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+
 	_db_ "pkit/db"
 	"pkit/db/base"
 	"pkit/domain"
@@ -116,6 +118,8 @@ func (sc *SignCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			CommonName:         cert.Subject.CommonName,
 			Type:               sc.Type,
 			KeyID:              dbCsr.KeyID,
+			Status:             "ACTIVE",
+			IsRevoked:          sql.NullInt64{Int64: 0, Valid: true},
 			IssuerSerialNumber: sql.NullString{String: issuerCert.SerialNumber.String(), Valid: true},
 			Skid:               hex.EncodeToString(cert.SubjectKeyId),
 			Akid:               hex.EncodeToString(cert.AuthorityKeyId),

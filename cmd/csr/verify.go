@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,17 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package csr
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"os"
-	"pkit/db/base"
 	"text/tabwriter"
+
+	"pkit/db/base"
 )
 
 type VerifyCmd struct {
@@ -117,5 +122,18 @@ func pubKeysEqual(a, b any) bool {
 	if okA && okB {
 		return rsaA.N.Cmp(rsaB.N) == 0 && rsaA.E == rsaB.E
 	}
+
+	ecdsaA, okA := a.(*ecdsa.PublicKey)
+	ecdsaB, okB := b.(*ecdsa.PublicKey)
+	if okA && okB {
+		return ecdsaA.Curve == ecdsaB.Curve && ecdsaA.X.Cmp(ecdsaB.X) == 0 && ecdsaA.Y.Cmp(ecdsaB.Y) == 0
+	}
+
+	edA, okA := a.(ed25519.PublicKey)
+	edB, okB := b.(ed25519.PublicKey)
+	if okA && okB {
+		return bytes.Equal(edA, edB)
+	}
+
 	return false
 }

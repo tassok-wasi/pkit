@@ -118,6 +118,7 @@ INSERT INTO certificates (
     skid,
     akid,
     status,
+    is_revoked,
     not_before,
     not_after,
     certificate_pem
@@ -132,7 +133,8 @@ INSERT INTO certificates (
     ?8,
     ?9,
     ?10,
-    ?11
+    ?11,
+    ?12
 )
 RETURNING id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
 `
@@ -146,6 +148,7 @@ type CreateCertificateParams struct {
 	Skid               string         `json:"skid"`
 	Akid               string         `json:"akid"`
 	Status             string         `json:"status"`
+	IsRevoked          sql.NullInt64  `json:"is_revoked"`
 	NotBefore          time.Time      `json:"not_before"`
 	NotAfter           time.Time      `json:"not_after"`
 	CertificatePem     string         `json:"certificate_pem"`
@@ -161,6 +164,7 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 		arg.Skid,
 		arg.Akid,
 		arg.Status,
+		arg.IsRevoked,
 		arg.NotBefore,
 		arg.NotAfter,
 		arg.CertificatePem,
@@ -1035,10 +1039,13 @@ SET
   skid = COALESCE(?5, skid),
   akid = COALESCE(?6, akid),
   status = COALESCE(?7, status),
-  not_before = COALESCE(?8, not_before),
-  not_after = COALESCE(?9, not_after),
-  certificate_pem = COALESCE(?10, certificate_pem)
-WHERE serial_number = ?11
+  is_revoked = COALESCE(?8, is_revoked),
+  revocation_reason = COALESCE(?9, revocation_reason),
+  revocation_time = COALESCE(?10, revocation_time),
+  not_before = COALESCE(?11, not_before),
+  not_after = COALESCE(?12, not_after),
+  certificate_pem = COALESCE(?13, certificate_pem)
+WHERE serial_number = ?14
 RETURNING id, serial_number, common_name, type, key_id, issuer_serial_number, not_before, not_after, skid, akid, is_revoked, revocation_reason, revocation_time, certificate_pem, status, created_at
 `
 
@@ -1050,6 +1057,9 @@ type UpdateCertificateParams struct {
 	Skid               sql.NullString `json:"skid"`
 	Akid               sql.NullString `json:"akid"`
 	Status             sql.NullString `json:"status"`
+	IsRevoked          sql.NullInt64  `json:"is_revoked"`
+	RevocationReason   sql.NullInt64  `json:"revocation_reason"`
+	RevocationTime     sql.NullTime   `json:"revocation_time"`
 	NotBefore          sql.NullTime   `json:"not_before"`
 	NotAfter           sql.NullTime   `json:"not_after"`
 	CertificatePem     sql.NullString `json:"certificate_pem"`
@@ -1065,6 +1075,9 @@ func (q *Queries) UpdateCertificate(ctx context.Context, arg UpdateCertificatePa
 		arg.Skid,
 		arg.Akid,
 		arg.Status,
+		arg.IsRevoked,
+		arg.RevocationReason,
+		arg.RevocationTime,
 		arg.NotBefore,
 		arg.NotAfter,
 		arg.CertificatePem,

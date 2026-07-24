@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package gen
 
 import (
@@ -21,9 +22,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+
+	"pkit/db/base"
 	"pkit/domain"
 	"pkit/utils"
-	"pkit/db/base"
 )
 
 type CACmd struct {
@@ -104,6 +106,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 	}
 
 	_, err = query.CreateCertificate(ctx, base.CreateCertificateParams{
+		Type:               string(domain.TypeRootCA),
 		SerialNumber:       fmt.Sprintf("%x", caCert.SerialNumber),
 		CommonName:         caCert.Subject.CommonName,
 		KeyID:              dbKey.ID,
@@ -111,6 +114,7 @@ func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error 
 		Skid:               skidHex,
 		Akid:               akidHex,
 		Status:             "ACTIVE",
+		IsRevoked:          sql.NullInt64{Int64: 0, Valid: false},
 		NotBefore:          caCert.NotBefore,
 		NotAfter:           caCert.NotAfter,
 		CertificatePem:     string(certPem),

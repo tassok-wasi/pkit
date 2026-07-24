@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package chain
 
 import (
@@ -19,9 +20,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
 	"pkit/cmd/cert/exp/helper"
-	"pkit/utils"
 	"pkit/db/base"
+	"pkit/utils"
 )
 
 type ChainCmd struct {
@@ -64,8 +66,8 @@ func (cc *ChainCmd) Run(ctx context.Context, query base.Querier) error {
 		}
 	}
 
-	defaultFileName := utils.SanitizeFilename(cert.Subject.CommonName, "chain") + "_chain" + ext
-	outPath, err := utils.ResolveDestinationPath(cc.Path, defaultFileName, ext)
+	defaultFileName := utils.SanitizeFilename(cert.Subject.CommonName, "chain") + "_chain"
+	outPath, err := utils.ResolveDestinationPath(cc.Path, utils.ToSnakeCase(defaultFileName), ext)
 	if err != nil {
 		return fmt.Errorf("failed to resolve target path: %w", err)
 	}
@@ -77,7 +79,7 @@ func (cc *ChainCmd) Run(ctx context.Context, query base.Querier) error {
 		}
 	}
 
-	if err := os.WriteFile(outPath, data, 0o644); err != nil {
+	if err := os.WriteFile(outPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write chain file to %s: %w", outPath, err)
 	}
 

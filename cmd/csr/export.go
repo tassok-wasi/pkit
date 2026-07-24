@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package csr
 
 import (
@@ -20,9 +21,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"pkit/utils"
-	"pkit/db/base"
 	"strings"
+
+	"pkit/db/base"
+	"pkit/utils"
 )
 
 type ExportCmd struct {
@@ -62,14 +64,15 @@ func (ec *ExportCmd) Run(ctx context.Context, query base.Querier) error {
 		return fmt.Errorf("unsupported format '%s': expected 'pem' or 'der'", ec.Format)
 	}
 
-	csrFilePath, err := utils.ResolveDestinationPath(ec.Path, dbCsr.CommonName, ext)
+	defaultFilename := fmt.Sprintf("%s_csr", utils.ToSnakeCase(dbCsr.CommonName))
+	csrFilePath, err := utils.ResolveDestinationPath(ec.Path, defaultFilename, ext)
 	if err != nil {
 		return fmt.Errorf("failed to resolve target path: %w", err)
 	}
 
 	targetDir := filepath.Dir(csrFilePath)
 	if targetDir != "." && targetDir != "" {
-		if err := os.MkdirAll(targetDir, 0755); err != nil {
+		if err := os.MkdirAll(targetDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
 		}
 	}

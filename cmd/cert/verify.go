@@ -1,4 +1,4 @@
-// Copyright 2026 Tassok Imam Wasiy
+// Copyright 2026 Tassok Imam Wasi
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package cert
 
 import (
@@ -18,9 +19,10 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"time"
+
 	"pkit/db/base"
 	"pkit/utils"
-	"time"
 )
 
 type VerifyCmd struct {
@@ -45,7 +47,7 @@ func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 	fmt.Println("Building and verifying trust chain...")
 
 	const maxChainDepth = 10
-	for depth := range maxChainDepth {
+	for depth := 0; depth < maxChainDepth; depth++ {
 		if workingCert.Subject.String() == workingCert.Issuer.String() {
 			fmt.Printf(" Root Anchor Found: %s\n", workingCert.Subject.CommonName)
 			break
@@ -62,9 +64,16 @@ func (vc *VerifyCmd) Run(ctx context.Context, query base.Querier) error {
 			return fmt.Errorf("Verification Failed: Trust chain broken. Authority Certificate with SKID [%s] (Issuer: %s) could not be found in the system: %w", akidHex, workingCert.Issuer.CommonName, err)
 		}
 
+		if parentDBCert.CommonName != "" && workingCert.Issuer.CommonName != "" && parentDBCert.CommonName != workingCert.Issuer.CommonName {
+			return fmt.Errorf("Verification Failed: Trust chain broken. Resolved parent certificate '%s' does not match expected issuer '%s'", parentDBCert.CommonName, workingCert.Issuer.CommonName)
+		}
+
 		parentCert, err := utils.ParseCertificate([]byte(parentDBCert.CertificatePem))
 		if err != nil {
 			return fmt.Errorf("failed to parse parent certificate: %w", err)
+		}
+		if workingCert.Issuer.String() != "" && parentCert.Subject.String() != workingCert.Issuer.String() {
+			return fmt.Errorf("Verification Failed: Trust chain broken. Resolved parent subject '%s' does not match expected issuer '%s'", parentCert.Subject.String(), workingCert.Issuer.String())
 		}
 
 		if err := workingCert.CheckSignatureFrom(parentCert); err != nil {
