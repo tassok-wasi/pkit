@@ -20,7 +20,7 @@ import (
 )
 
 type ExportCmd struct {
-	Leaf   LeafCmd          `cmd:"" help:"Export a standalone certificate to PEM or DER format."`
-	Chain  chain.ChainCmd   `cmd:"" help:"Export a full certificate chain to PEM or PKCS#7 format."`
-	Bundle bundle.BundleCmd `cmd:"" help:"Export a certificate and private key bundle to PKCS#12 or PEM format."`
+	Standalone StandaloneCmd    `cmd:"" help:"Export a standalone certificate to PEM or DER format."`
+	Chain      chain.ChainCmd   `cmd:"" help:"Export a full certificate chain to PEM or PKCS#7 format."`
+	Bundle     bundle.BundleCmd `cmd:"" help:"Export a certificate and private key bundle to PKCS#12 or PEM format."`
 }

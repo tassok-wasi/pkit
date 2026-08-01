@@ -27,13 +27,13 @@ import (
 	"pkit/utils"
 )
 
-type LeafCmd struct {
+type StandaloneCmd struct {
 	ID     int64  `arg:"" help:"Database ID of the certificate to export."`
 	Path   string `name:"path" short:"p" help:"Destination directory or file path for the exported certificate."`
 	Format string `name:"format" short:"f" required:"" enum:"pem,der" default:"pem" help:"File format for the exported certificate."`
 }
 
-func (sc *LeafCmd) Run(ctx context.Context, query base.Querier) error {
+func (sc *StandaloneCmd) Run(ctx context.Context, query base.Querier) error {
 	dbCert, err := query.GetCertificateByID(ctx, sc.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get Certificate from db: %w", err)

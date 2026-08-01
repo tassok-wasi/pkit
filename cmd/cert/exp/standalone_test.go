@@ -78,13 +78,13 @@ func TestLeafCmd_Run(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		cmd        LeafCmd
+		cmd        StandaloneCmd
 		wantErr    bool
 		checkFiles func(t *testing.T, targetPath string)
 	}{
 		{
 			name: "export leaf cert in PEM format",
-			cmd: LeafCmd{
+			cmd: StandaloneCmd{
 				ID:     dbCert.ID,
 				Path:   filepath.Join(tmpDir, "leaf_export_pem"),
 				Format: "pem",
@@ -99,7 +99,7 @@ func TestLeafCmd_Run(t *testing.T) {
 		},
 		{
 			name: "export leaf cert in DER format",
-			cmd: LeafCmd{
+			cmd: StandaloneCmd{
 				ID:     dbCert.ID,
 				Path:   filepath.Join(tmpDir, "leaf_export_der"),
 				Format: "der",
@@ -114,7 +114,7 @@ func TestLeafCmd_Run(t *testing.T) {
 		},
 		{
 			name: "unsupported export format returns error",
-			cmd: LeafCmd{
+			cmd: StandaloneCmd{
 				ID:     dbCert.ID,
 				Format: "unsupported_fmt",
 			},
@@ -122,7 +122,7 @@ func TestLeafCmd_Run(t *testing.T) {
 		},
 		{
 			name: "non-existent cert ID returns error",
-			cmd: LeafCmd{
+			cmd: StandaloneCmd{
 				ID:     999999,
 				Format: "pem",
 			},
