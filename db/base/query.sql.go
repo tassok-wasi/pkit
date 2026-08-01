@@ -232,6 +232,26 @@ func (q *Queries) CreateKeyPair(ctx context.Context, arg CreateKeyPairParams) (K
 	return i, err
 }
 
+const deleteCertificateByID = `-- name: DeleteCertificateByID :exec
+DELETE FROM certificates
+WHERE id = ?1
+`
+
+func (q *Queries) DeleteCertificateByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteCertificateByID, id)
+	return err
+}
+
+const deleteKeyByID = `-- name: DeleteKeyByID :exec
+DELETE FROM keys
+WHERE id = ?1
+`
+
+func (q *Queries) DeleteKeyByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteKeyByID, id)
+	return err
+}
+
 const getCRLByID = `-- name: GetCRLByID :one
 SELECT id, name, crl_number, issuer_id, this_update, next_update, crl_pem, created_at FROM crls WHERE id = ?1
 `
@@ -552,7 +572,7 @@ func (q *Queries) ListAllCSRs(ctx context.Context, status sql.NullString) ([]Lis
 }
 
 const listAllCertificates = `-- name: ListAllCertificates :many
-SELECT id, serial_number, common_name, type, status, not_after, is_revoked
+SELECT id, serial_number, common_name, type, status, not_after, is_revoked, skid, akid, created_at
 FROM certificates
 WHERE
     (CAST(?1 AS TEXT) IS NULL OR status = CAST(?1 AS TEXT))
@@ -573,6 +593,9 @@ type ListAllCertificatesRow struct {
 	Status       string        `json:"status"`
 	NotAfter     time.Time     `json:"not_after"`
 	IsRevoked    sql.NullInt64 `json:"is_revoked"`
+	Skid         string        `json:"skid"`
+	Akid         string        `json:"akid"`
+	CreatedAt    sql.NullTime  `json:"created_at"`
 }
 
 func (q *Queries) ListAllCertificates(ctx context.Context, arg ListAllCertificatesParams) ([]ListAllCertificatesRow, error) {
@@ -592,6 +615,9 @@ func (q *Queries) ListAllCertificates(ctx context.Context, arg ListAllCertificat
 			&i.Status,
 			&i.NotAfter,
 			&i.IsRevoked,
+			&i.Skid,
+			&i.Akid,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -796,7 +822,7 @@ func (q *Queries) ListCSRs(ctx context.Context, arg ListCSRsParams) ([]ListCSRsR
 }
 
 const listCertificates = `-- name: ListCertificates :many
-SELECT id, serial_number, common_name, type, status, not_after, is_revoked
+SELECT id, serial_number, common_name, type, status, not_after, is_revoked, skid, akid, created_at
 FROM certificates
 WHERE
     (CAST(?1 AS TEXT) IS NULL OR status = CAST(?1 AS TEXT))
@@ -821,6 +847,9 @@ type ListCertificatesRow struct {
 	Status       string        `json:"status"`
 	NotAfter     time.Time     `json:"not_after"`
 	IsRevoked    sql.NullInt64 `json:"is_revoked"`
+	Skid         string        `json:"skid"`
+	Akid         string        `json:"akid"`
+	CreatedAt    sql.NullTime  `json:"created_at"`
 }
 
 func (q *Queries) ListCertificates(ctx context.Context, arg ListCertificatesParams) ([]ListCertificatesRow, error) {
@@ -845,6 +874,9 @@ func (q *Queries) ListCertificates(ctx context.Context, arg ListCertificatesPara
 			&i.Status,
 			&i.NotAfter,
 			&i.IsRevoked,
+			&i.Skid,
+			&i.Akid,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1100,6 +1132,32 @@ func (q *Queries) UpdateCertificate(ctx context.Context, arg UpdateCertificatePa
 		&i.RevocationTime,
 		&i.CertificatePem,
 		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateKeyName = `-- name: UpdateKeyName :one
+UPDATE keys
+SET name = ?1
+WHERE id = ?2
+RETURNING id, name, algorithm, private_key_pem, public_key_pem, created_at
+`
+
+type UpdateKeyNameParams struct {
+	Name string `json:"name"`
+	ID   int64  `json:"id"`
+}
+
+func (q *Queries) UpdateKeyName(ctx context.Context, arg UpdateKeyNameParams) (Key, error) {
+	row := q.db.QueryRowContext(ctx, updateKeyName, arg.Name, arg.ID)
+	var i Key
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Algorithm,
+		&i.PrivateKeyPem,
+		&i.PublicKeyPem,
 		&i.CreatedAt,
 	)
 	return i, err

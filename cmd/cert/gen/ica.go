@@ -31,24 +31,19 @@ import (
 type ICACmd struct {
 	CommonName         string   `name:"cn" required:"" help:"Common Name (CN) of the certificate subject."`
 	Country            []string `name:"c" help:"Country (C) code(s) for the certificate subject."`
-	Organization       []string `name:"o" help:"Organization (O) name(s) for the certificate subject."`
+	Organization       []string `name:"org" help:"Organization (O) name(s) for the certificate subject."`
 	OrganizationalUnit []string `name:"ou" help:"Organizational Unit (OU) name(s) for the certificate subject."`
 	Locality           []string `name:"locality" help:"Locality or city (L) name(s) for the certificate subject."`
 	Province           []string `name:"st" help:"State or province (ST) name(s) for the certificate subject."`
 	StreetAddress      []string `name:"street" help:"Street address(es) for the certificate subject."`
 	PostalCode         []string `name:"postal-code" help:"Postal code(s) for the certificate subject."`
-	KeyType            string   `name:"type" required:"" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ecdsa-256" help:"Cryptographic algorithm and key size to generate for the certificate."`
 	TTL                string   `name:"ttl" required:"" default:"17280h" help:"Validity duration/time-to-live for the certificate (e.g., 8760h, 30d, 10y)."`
-	DNSNames           []string `name:"dns" help:"DNS Subject Alternative Names (SANs)."`
-	EmailAddresses     []string `name:"email" help:"Email Subject Alternative Names (SANs)."`
-	IPAddresses        []string `name:"ip" help:"IP address Subject Alternative Names (SANs)."`
-	URIs               []string `name:"uri" help:"URI Subject Alternative Names (SANs)."`
 	KeyUsages          []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Key usage extensions to enable (can be specified multiple times or comma-separated)."`
 	ExtKeyUsages       []string `name:"eku" enum:"any,server-auth,client-auth,code-signing,email-protection,time-stamping,ocsp-signing" help:"Extended key usage (EKU) extensions to enable (can be specified multiple times or comma-separated)."`
 	PathLen            int      `name:"path-len" help:"Maximum allowed path length for downstream CA certificates in the chain."`
 
 	IssuerID int64 `name:"iss" help:"Database ID of the issuing parent certificate."`
-	KeyID    int64 `name:"kid" help:"Database ID of the cryptographic key pair used to sign the certificate."`
+	KeyID    int64 `name:"kid" short:"k" help:"Database ID of the cryptographic key pair used to sign the certificate."`
 }
 
 func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {
@@ -92,15 +87,6 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 		return err
 	}
 
-	netIps, err := utils.ToNetIPs(ic.IPAddresses)
-	if err != nil {
-		return err
-	}
-	urls, err := utils.ToURLs(ic.URIs)
-	if err != nil {
-		return err
-	}
-
 	icaCert, err := domain.IssueCertificate(domain.CertOptions{
 		Type: domain.TypeIntermediate,
 		Subject: pkix.Name{
@@ -112,12 +98,6 @@ func (ic *ICACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error
 			StreetAddress:      ic.StreetAddress,
 			PostalCode:         ic.PostalCode,
 			CommonName:         ic.CommonName,
-		},
-		SANs: domain.SANs{
-			DNSNames:       ic.DNSNames,
-			EmailAddresses: ic.EmailAddresses,
-			IPAddresses:    netIps,
-			URIs:           urls,
 		},
 		TTLInHours: hours,
 		KeyPair: &domain.KeyPair{

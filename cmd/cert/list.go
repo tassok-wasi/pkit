@@ -38,6 +38,7 @@ type unifiedCert struct {
 	CommonName   string
 	Type         string
 	Status       string
+	CreatedAt    string
 }
 
 func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {
@@ -55,12 +56,18 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			return fmt.Errorf("failed to fetch certificates from DB: %w", err)
 		}
 		for _, c := range certs {
+			createdAtStr := "N/A"
+
+			if c.CreatedAt.Valid {
+				createdAtStr = c.CreatedAt.Time.Format("2006-01-02 15:04:05")
+			}
 			list = append(list, unifiedCert{
 				ID:           c.ID,
 				SerialNumber: c.SerialNumber,
 				CommonName:   c.CommonName,
 				Type:         c.Type,
 				Status:       c.Status,
+				CreatedAt:    createdAtStr,
 			})
 		}
 	} else {
@@ -74,12 +81,18 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 			return fmt.Errorf("failed to fetch certificates from DB: %w", err)
 		}
 		for _, c := range certs {
+			createdAtStr := "N/A"
+
+			if c.CreatedAt.Valid {
+				createdAtStr = c.CreatedAt.Time.Format("2006-01-02 15:04:05")
+			}
 			list = append(list, unifiedCert{
 				ID:           c.ID,
 				SerialNumber: c.SerialNumber,
 				CommonName:   c.CommonName,
 				Type:         c.Type,
 				Status:       c.Status,
+				CreatedAt:    createdAtStr,
 			})
 		}
 	}
@@ -90,16 +103,17 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
-	fmt.Fprintln(w, "ID\tSERIAL NUMBER\tCOMMON NAME\tTYPE\tSTATUS")
-	fmt.Fprintln(w, "--\t-----\t-----------\t----\t------")
+	fmt.Fprintln(w, "ID\tSERIAL NUMBER\tCOMMON NAME\tTYPE\tSTATUS\tCREATED AT")
+	fmt.Fprintln(w, "--\t-----\t-----------\t----\t------\t---------")
 
 	for _, cert := range list {
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
 			cert.ID,
 			cert.SerialNumber,
 			cert.CommonName,
 			cert.Type,
 			cert.Status,
+			cert.CreatedAt,
 		)
 	}
 

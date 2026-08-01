@@ -20,5 +20,7 @@ type KeyCmd struct {
 	Read     ReadCmd     `cmd:"" help:"Display the raw PEM encoded data of a key pair."`
 	Verify   VerifyCmd   `cmd:"" help:"Verify the cryptographic integrity and match of a key pair against a certificate."`
 	Inspect  InspectCmd  `cmd:"" help:"Inspect detailed technical specifications and mathematical validity of a key pair."`
+	Rename   RenameCmd   `cmd:"" help:"Rename an existing cryptographic key pair."`
+	Delete   DeleteCmd   `cmd:"" help:"Delete an existing cryptographic key pair."`
 	Export   ExportCmd   `cmd:"" help:"Export key pairs to PEM, DER, or encrypted binary blob files."`
 }

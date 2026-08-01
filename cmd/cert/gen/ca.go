@@ -31,7 +31,7 @@ import (
 type CACmd struct {
 	CommonName         string   `name:"cn" required:"" help:"Common Name (CN) of the certificate subject."`
 	Country            []string `name:"c" help:"Country (C) code(s) for the certificate subject."`
-	Organization       []string `name:"o" help:"Organization (O) name(s) for the certificate subject."`
+	Organization       []string `name:"org" help:"Organization (O) name(s) for the certificate subject."`
 	OrganizationalUnit []string `name:"ou" help:"Organizational Unit (OU) name(s) for the certificate subject."`
 	Locality           []string `name:"locality" help:"Locality or city (L) name(s) for the certificate subject."`
 	Province           []string `name:"st" help:"State or province (ST) name(s) for the certificate subject."`
@@ -40,7 +40,7 @@ type CACmd struct {
 	TTL                string   `name:"ttl" required:"" default:"86400h" help:"Validity duration/time-to-live for the certificate (e.g., 8760h, 30d, 10y)."`
 	KeyUsages          []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Key usage extensions to enable (can be specified multiple times or comma-separated)."`
 
-	KeyID int64 `name:"kid" help:"Database ID of the cryptographic key pair used to sign the certificate."`
+	KeyID int64 `name:"kid" short:"k" help:"Database ID of the cryptographic key pair used to sign the certificate."`
 }
 
 func (cc *CACmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {

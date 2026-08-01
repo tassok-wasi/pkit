@@ -14,6 +14,8 @@ type Querier interface {
 	CreateCSR(ctx context.Context, arg CreateCSRParams) (Csr, error)
 	CreateCertificate(ctx context.Context, arg CreateCertificateParams) (Certificate, error)
 	CreateKeyPair(ctx context.Context, arg CreateKeyPairParams) (Key, error)
+	DeleteCertificateByID(ctx context.Context, id int64) error
+	DeleteKeyByID(ctx context.Context, id int64) error
 	GetCRLByID(ctx context.Context, id int64) (Crl, error)
 	GetCSRByID(ctx context.Context, id int64) (Csr, error)
 	GetCertificateByCN(ctx context.Context, commonName string) (Certificate, error)
@@ -37,6 +39,7 @@ type Querier interface {
 	RevokeCertificate(ctx context.Context, arg RevokeCertificateParams) (Certificate, error)
 	UpdateCSRStatus(ctx context.Context, arg UpdateCSRStatusParams) error
 	UpdateCertificate(ctx context.Context, arg UpdateCertificateParams) (Certificate, error)
+	UpdateKeyName(ctx context.Context, arg UpdateKeyNameParams) (Key, error)
 }
 
 var _ Querier = (*Queries)(nil)

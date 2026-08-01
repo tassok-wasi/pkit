@@ -29,5 +29,6 @@ type CertCmd struct {
 	Diff     DiffCmd         `cmd:"" help:"Compare two certificates and highlight structural differences."`
 	Revoke   RevokeCmd       `cmd:"" help:"Revoke an active certificate with a specified reason code."`
 	Rotate   RotateCmd       `cmd:"" help:"Rotate an existing certificate with a newly generated key pair."`
+	Delete   DeleteCmd       `cmd:"" help:"Delete an existing certificate from the database."`
 	Export   exp.ExportCmd   `cmd:"" help:"Export certificates, full chains, or PKCS#12 bundles."`
 }

@@ -43,7 +43,7 @@ INSERT INTO certificates (
 RETURNING *;
 
 -- name: ListCertificates :many
-SELECT id, serial_number, common_name, type, status, not_after, is_revoked
+SELECT id, serial_number, common_name, type, status, not_after, is_revoked, skid, akid, created_at
 FROM certificates
 WHERE
     (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
@@ -53,7 +53,7 @@ LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
 -- name: ListAllCertificates :many
-SELECT id, serial_number, common_name, type, status, not_after, is_revoked
+SELECT id, serial_number, common_name, type, status, not_after, is_revoked, skid, akid, created_at
 FROM certificates
 WHERE
     (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
@@ -78,8 +78,22 @@ SELECT * FROM keys WHERE id = sqlc.arg('id');
 -- name: GetKeyByName :one
 SELECT * FROM keys WHERE name = sqlc.arg('name');
 
+-- name: UpdateKeyName :one
+UPDATE keys
+SET name = sqlc.arg('name')
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: DeleteKeyByID :exec
+DELETE FROM keys
+WHERE id = sqlc.arg('id');
+
 -- name: GetCertificateByID :one
 SELECT * FROM certificates WHERE id = sqlc.arg('id');
+
+-- name: DeleteCertificateByID :exec
+DELETE FROM certificates
+WHERE id = sqlc.arg('id');
 
 -- name: GetCertificateBySN :one
 SELECT * FROM certificates WHERE serial_number = sqlc.arg('serial_number');

@@ -31,7 +31,7 @@ import (
 type GenerateCmd struct {
 	CommonName         string   `name:"cn" required:"" help:"Common Name (CN) of the CSR subject."`
 	Country            []string `name:"c" help:"Country (C) code(s) for the CSR subject."`
-	Organization       []string `name:"o" help:"Organization (O) name(s) for the CSR subject."`
+	Organization       []string `name:"org" help:"Organization (O) name(s) for the CSR subject."`
 	OrganizationalUnit []string `name:"ou" help:"Organizational Unit (OU) name(s) for the CSR subject."`
 	Locality           []string `name:"locality" help:"Locality or city (L) name(s) for the CSR subject."`
 	Province           []string `name:"st" help:"State or province (ST) name(s) for the CSR subject."`
@@ -43,7 +43,7 @@ type GenerateCmd struct {
 	IPAddresses        []string `name:"ip" help:"IP address Subject Alternative Names (SANs)."`
 	URIs               []string `name:"uri" help:"URI Subject Alternative Names (SANs)."`
 
-	KeyID int64 `name:"kid" help:"Database ID of the cryptographic key pair to associate with the CSR."`
+	KeyID int64 `name:"kid" short:"k" help:"Database ID of the cryptographic key pair to associate with the CSR."`
 }
 
 func (gc *GenerateCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {

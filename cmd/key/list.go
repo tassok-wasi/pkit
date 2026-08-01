@@ -31,8 +31,8 @@ type ListCmd struct {
 
 func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
-	fmt.Fprintln(w, "KEY NAME\tALGORITHM\tCREATED AT")
-	fmt.Fprintln(w, "--------\t---------\t----------")
+	fmt.Fprintln(w, "ID\tKEY NAME\tALGORITHM\tCREATED AT")
+	fmt.Fprintln(w, "--\t--------\t---------\t----------")
 
 	if lc.Limit == 0 && lc.Offset == 0 {
 		keys, err := query.ListAllKeys(ctx)
@@ -52,7 +52,8 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 				createdAtStr = k.CreatedAt.Time.Format("2006-01-02 15:04:05")
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+				k.ID,
 				k.Name,
 				k.Algorithm,
 				createdAtStr,
@@ -80,7 +81,8 @@ func (lc *ListCmd) Run(ctx context.Context, db *sql.DB, query base.Querier) erro
 				createdAtStr = k.CreatedAt.Time.Format("2006-01-02 15:04:05")
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+				k.ID,
 				k.Name,
 				k.Algorithm,
 				createdAtStr,
