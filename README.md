@@ -1,277 +1,373 @@
-# pkit
+# pkit - PKI Lifecycle Management Toolkit
 
-`pkit` is a local PKI command-line tool for working with keys, CSRs, certificates, and CRLs.
-
-The idea behind it is simple: sometimes you do not need a full certificate platform or an external CA service. You just need a solid local tool that can help you issue certificates, inspect what you already have, revoke them when needed, and export the right artifacts in standard formats.
-
-`pkit` stores its working state locally in SQLite and uses the OS keyring to protect the master key used for private key encryption.
+`pkit` is a complete internal Public Key Infrastructure (PKI) lifecycle management CLI tool. It provides comprehensive management of cryptographic keys, X.509 certificates, Certificate Signing Requests (CSRs), and Certificate Revocation Lists (CRLs) with a SQLite-backed persistent database and OS keyring integration.
 
 ---
 
-## What it can do
+## Features
 
-`pkit` is split into four main areas:
-
-- `key` — generate, inspect, verify, read, list, and export key pairs
-- `csr` — generate, inspect, verify, sign, list, read, and export CSRs
-- `cert` — generate, inspect, validate, verify, diff, revoke, rotate, list, read, and export certificates
-- `crl` — generate, inspect, validate, verify, diff, list, read, and export CRLs
-
-In short, it covers the core lifecycle of a small internal PKI.
+- **Key Management:** Generate, inspect, list, export, and verify cryptographic key pairs (RSA, ECDSA, Ed25519)
+- **Certificate Management:** Generate Root CAs, Intermediate CAs, and Leaf certificates; inspect, validate, verify chains, revoke, rotate, and delete certificates
+- **CSR Management:** Generate, inspect, sign, and export Certificate Signing Requests
+- **CRL Management:** Generate, inspect, verify, and export Certificate Revocation Lists
+- **Secure Storage:** Private keys are encrypted using AES-GCM with a master key stored in the OS keyring
+- **Export Formats:** PEM, DER, PKCS#12, and PKCS#7 support
 
 ---
 
-## Setup
-
-Build the binary:
+## Installation
 
 ```bash
-go build -o pkit .
+go install github.com/tassok-wasi/pkit@latest
 ```
-
-Initialize the local workspace once:
-
-```bash
-./pkit init
-```
-
-This creates the local application directory and database under:
-
-```text
-~/.pkit/
-```
-
-Database path:
-
-```text
-~/.pkit/pkit.db
-```
-
-After that, the rest of the commands are ready to use.
 
 ---
 
-## A normal workflow
+## Getting Started
 
-A typical flow looks like this:
+### 1. Initialize the Application
 
-1. generate a key pair
-2. issue a root CA
-3. issue an intermediate CA if needed
-4. issue a leaf certificate
-5. inspect and verify it
-6. revoke it if necessary
-7. generate a CRL
+```bash
+pkit init
+```
 
-That is really the heart of the tool.
+This creates the database (`~/.pkit/pkit.db`) and generates a master key stored in your OS keyring.
+
+### 2. Generate a Key Pair
+
+Before creating certificates, you need a cryptographic key pair:
+
+```bash
+pkit key generate --type ed25519 --name "Root CA Key"
+```
+
+**Available key types:** `rsa-2048`, `rsa-4096`, `ecdsa-224`, `ecdsa-256`, `ecdsa-384`, `ecdsa-521`, `ed25519`
 
 ---
 
-## Quick examples
+## Key Management (`pkit key`)
 
-### Generate a key pair
+### List Keys
 
 ```bash
-./pkit key generate --name root-key --type ed25519
-./pkit key generate --name ica-key --type ed25519
-./pkit key generate --name leaf-key --type ed25519
+pkit key list
+pkit key list --limit 10 --offset 5   # Pagination
 ```
 
-### Create a root CA
+### Inspect a Key
 
 ```bash
-./pkit cert generate ca \
+pkit key inspect 1                    # Basic info
+pkit key inspect 1 --validate         # With cryptographic validation
+```
+
+### Export a Key Pair
+
+```bash
+# PEM format (decrypted)
+pkit key export 1 --path ./mykey --format pem
+
+# DER format
+pkit key export 1 --path ./mykey --format der
+
+# Encrypted blob (stored encrypted as in database)
+pkit key export 1 --path ./mykey --blob
+```
+
+### Delete a Key
+
+```bash
+pkit key delete 1
+```
+
+---
+
+## Certificate Management (`pkit cert`)
+
+### Generate Certificates
+
+#### Root CA (Self-Signed)
+
+```bash
+pkit cert generate ca \
   --cn "Example Root CA" \
-  --kid 1 \
-  --ttl 10y
+  --org "Example Corp" \
+  --c US \
+  --ttl 10y \
+  --ku cert-sign,crl-sign \
+  --kid 1
 ```
 
-### Create an intermediate CA
+**Key Usage (--ku) options:** `digital-signature`, `content-commitment`, `key-encipherment`, `data-encipherment`, `key-agreement`, `cert-sign`, `crl-sign`, `encipher-only`, `decipher-only`
+
+#### Intermediate CA
 
 ```bash
-./pkit cert generate ica \
+pkit cert generate ica \
   --cn "Example Intermediate CA" \
-  --kid 2 \
+  --org "Example Corp" \
+  --ttl 5y \
+  --ku cert-sign,crl-sign \
+  --eku server-auth,client-auth \
+  --path-len 0 \
   --iss 1 \
-  --ttl 2y \
-  --path-len 1
+  --kid 2
 ```
 
-### Create a leaf certificate
+**Extended Key Usage (--eku) options:** `any`, `server-auth`, `client-auth`, `code-signing`, `email-protection`, `time-stamping`, `ocsp-signing`
+
+#### Leaf Certificate
 
 ```bash
-./pkit cert generate leaf \
-  --cn "api.example.internal" \
-  --kid 3 \
+pkit cert generate leaf \
+  --cn "api.example.com" \
+  --org "Example Corp" \
+  --ttl 1y \
+  --dns api.example.com,www.example.com \
+  --ip 192.168.1.100 \
+  --uri https://example.com \
+  --ku digital-signature,key-encipherment \
+  --eku server-auth,client-auth \
   --iss 2 \
-  --ttl 365d \
-  --dns api.example.internal \
-  --dns example.internal
+  --kid 3
 ```
 
-### Inspect and verify a certificate
+### List Certificates
 
 ```bash
-./pkit cert inspect 3
-./pkit cert inspect 3 --fingerprint
-./pkit cert validate 3
-./pkit cert verify 3
+pkit cert list
+pkit cert list --status ACTIVE --type LEAF
+pkit cert list --limit 20 --offset 10
 ```
 
-### Revoke a certificate
+### Read Raw PEM Data
 
 ```bash
-./pkit cert revoke 3 --reason key-compromise
+pkit cert read 1
 ```
 
-### Generate a CRL
+### Inspect Certificate Details
 
 ```bash
-./pkit crl generate --iss 2 --ttl 7d
-./pkit crl inspect 1
-./pkit crl verify 1
+pkit cert inspect 1                      # Basic inspection
+pkit cert inspect 1 --fingerprint        # Show SHA-1/SHA-256 fingerprints
+pkit cert inspect 1 --key-usages         # Show key usage flags
+pkit cert inspect 1 --extensions         # Show extended key usage
+pkit cert inspect 1 --json               # JSON output
+```
+
+### Compare Two Certificates
+
+```bash
+pkit cert diff 1 2
+```
+
+### Validate Certificate (Sanity Checks)
+
+```bash
+pkit cert validate 1
+```
+
+### Verify Certificate Chain
+
+```bash
+pkit cert verify 1
+```
+
+### Revoke a Certificate
+
+```bash
+pkit cert revoke 1 --reason key-compromise
+```
+
+**Reason options:** `unspecified`, `key-compromise`, `ca-compromise`, `affiliation-changed`, `superseded`, `cessation-of-operation`, `certificate-hold`, `remove-from-crl`, `privilege-withdrawn`, `a-a-compromise`
+
+### Rotate a Certificate (Replace with New Key)
+
+```bash
+pkit cert rotate 1 --kid 4
+```
+
+### Export Certificates
+
+```bash
+# Single certificate (PEM)
+pkit cert export leaf 1 --path ./cert --format pem
+
+# Single certificate (DER)
+pkit cert export leaf 1 --path ./cert --format der
+
+# Full chain (PEM)
+pkit cert export chain 1 --path ./chain --format pem
+
+# Full chain (PKCS#7)
+pkit cert export chain 1 --path ./chain --format pkcs7
+
+# PKCS#12 bundle (with private key)
+pkit cert export bundle 1 --path ./bundle --format pkcs12 --pass-phrase "secret"
+```
+
+### Delete a Certificate
+
+```bash
+pkit cert delete 1
 ```
 
 ---
 
-## Working with CSRs
-
-If you want a CSR-based flow instead of issuing directly, that is supported too.
+## CSR Management (`pkit csr`)
 
 ### Generate a CSR
 
 ```bash
-./pkit csr generate \
-  --cn service.example.internal \
-  --kid 3 \
+pkit csr generate \
+  --cn "app.example.com" \
+  --org "Example Corp" \
+  --dns app.example.com,api.example.com \
+  --ip 10.0.0.1 \
   --type ed25519 \
-  --dns service.example.internal
+  --kid 5
 ```
 
-### Inspect and verify it
+### List CSRs
 
 ```bash
-./pkit csr list
-./pkit csr inspect 1
-./pkit csr verify 1
+pkit csr list
+pkit csr list --status PENDING
+pkit csr list --limit 10
 ```
 
-### Sign it into a certificate
+### Read Raw CSR PEM
 
 ```bash
-./pkit csr sign 1 --type LEAF --iss 2 --ttl 365d
+pkit csr read 1
+```
+
+### Inspect CSR Details
+
+```bash
+pkit csr inspect 1
+```
+
+### Verify CSR (Self-Signature & Key Integrity)
+
+```bash
+pkit csr verify 1
+```
+
+### Sign a CSR
+
+```bash
+pkit csr sign 1 \
+  --iss 2 \
+  --type LEAF \
+  --ttl 1y \
+  --ku digital-signature,key-encipherment \
+  --eku server-auth,client-auth
+```
+
+### Export a CSR
+
+```bash
+# PEM format
+pkit csr export 1 --path ./csr --format pem
+
+# DER format
+pkit csr export 1 --path ./csr --format der
 ```
 
 ---
 
-## Exporting artifacts
+## CRL Management (`pkit crl`)
 
-`pkit` can export objects in the formats you would expect.
-
-### Certificates
+### Generate a CRL
 
 ```bash
-./pkit cert export leaf 3 --format pem --path ./out
-./pkit cert export leaf 3 --format der --path ./out/server.der
+pkit crl generate --iss 1 --ttl 168h
 ```
 
-### Certificate chains
+### List CRLs
 
 ```bash
-./pkit cert export chain 3 --format pem --path ./out
-./pkit cert export chain 3 --format pkcs7 --path ./out
+pkit crl list --iss 1
+pkit crl list --iss 1 --limit 10 --offset 5
 ```
 
-### Certificate bundles
+### Read Raw CRL PEM
 
 ```bash
-./pkit cert export bundle 3 --format pkcs12 --pass-phrase "changeit" --path ./out
+pkit crl read 1
 ```
 
-### Keys
+### Inspect CRL Details
 
 ```bash
-./pkit key export 3 --format pem --path ./keys
-./pkit key export 3 --format der --path ./keys
-./pkit key export 3 --format pem --blob --path ./keys
+pkit crl inspect 1
 ```
 
-### CRLs
+### Verify CRL Signature
 
 ```bash
-./pkit crl export 1 --format pem --path ./out
-./pkit crl export 1 --format der --path ./out/example.crl.der
+pkit crl verify 1
 ```
 
----
-
-## Useful commands to know
-
-### Certificates
+### Validate CRL (Sanity Checks)
 
 ```bash
-./pkit cert list
-./pkit cert read 3
-./pkit cert diff 3 4
-./pkit cert rotate 3 --kid 4 --iss 2
+pkit crl validate 1
 ```
 
-### Keys
+### Compare Two CRLs
 
 ```bash
-./pkit key list
-./pkit key read 3
-./pkit key inspect 3 --validate
-./pkit key verify 3
+pkit crl diff 1 2
 ```
 
-### CSRs
+### Export a CRL
 
 ```bash
-./pkit csr list --status PENDING
-./pkit csr read 1
-./pkit csr export 1 --format pem --path ./out
-```
+# PEM format
+pkit crl export 1 --path ./crl --format pem
 
-### CRLs
-
-```bash
-./pkit crl list
-./pkit crl read 1
-./pkit crl validate 1
-./pkit crl diff 1 2
+# DER format
+pkit crl export 1 --path ./crl --format der
 ```
 
 ---
 
-## A few practical notes
+## Global Flags
 
-- Most commands work by database ID, so `list` is usually the first thing you run.
-- Trust-chain verification is done against certificates stored in the local database.
-- Private keys are encrypted before storage.
-- Exported key material is handled more carefully than public certificate artifacts.
-- TTL values use the formats implemented in the code: `h`, `d`, and `y`.
+| Flag | Description |
+|------|-------------|
+| `--help` | Show help for any command |
 
 ---
 
-## Development
+## Database Schema
 
-Run the full test suite with:
+`pkit` uses SQLite with the following tables:
+- `keys` - Cryptographic key pairs (private keys stored encrypted)
+- `certificates` - X.509 certificates
+- `csrs` - Certificate Signing Requests
+- `crls` - Certificate Revocation Lists
 
-```bash
-go test ./...
-```
+---
 
-Main directories:
+## Security Notes
 
-- `cmd/` — CLI commands
-- `db/` — schema and generated queries
-- `domain/` — PKI lifecycle logic
-- `utils/` — crypto, parsing, validation, and helpers
-- `testutil/` — test support code
+- **Private keys are encrypted** using AES-256-GCM before being stored in the database
+- **Master key** is stored in the OS keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service)
+- **Sensitive files** are written with `0600` permissions
+- **Database** uses WAL journal mode and foreign key constraints
 
 ---
 
 ## License
 
 Apache License 2.0. See `LICENSE` for details.
+
+---
+
+## Author
+
+Tassok Imam Wasi
