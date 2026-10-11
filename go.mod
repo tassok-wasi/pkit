@@ -1,4 +1,4 @@
-module pkit
+module github.com/tassok-wasi/pkit
 
 go 1.26.5
 

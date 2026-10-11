@@ -19,8 +19,8 @@ import (
 	"os"
 	"path/filepath"
 
-	_db_ "pkit/db"
-	"pkit/utils"
+	_db_ "github.com/tassok-wasi/pkit/db"
+	"github.com/tassok-wasi/pkit/utils"
 
 	_ "github.com/mattn/go-sqlite3"
 )

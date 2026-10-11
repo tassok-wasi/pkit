@@ -15,8 +15,8 @@
 package exp
 
 import (
-	"pkit/cmd/cert/exp/bundle"
-	"pkit/cmd/cert/exp/chain"
+	"github.com/tassok-wasi/pkit/cmd/cert/exp/bundle"
+	"github.com/tassok-wasi/pkit/cmd/cert/exp/chain"
 )
 
 type ExportCmd struct {

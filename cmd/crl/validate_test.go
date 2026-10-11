@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"pkit/db/base"
-	"pkit/domain"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/domain"
 )
 
 func TestValidateCmd_Run(t *testing.T) {

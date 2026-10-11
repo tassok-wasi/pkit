@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 type DeleteCmd struct {

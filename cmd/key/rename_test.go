@@ -17,7 +17,7 @@ package key
 import (
 	"testing"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 func TestRenameCmd_Run(t *testing.T) {

@@ -22,14 +22,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"pkit/cmd"
-	"pkit/cmd/cert"
-	"pkit/cmd/crl"
-	"pkit/cmd/csr"
-	"pkit/cmd/key"
-	_db_ "pkit/db"
-	"pkit/db/base"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/cmd"
+	"github.com/tassok-wasi/pkit/cmd/cert"
+	"github.com/tassok-wasi/pkit/cmd/crl"
+	"github.com/tassok-wasi/pkit/cmd/csr"
+	"github.com/tassok-wasi/pkit/cmd/key"
+	_db_ "github.com/tassok-wasi/pkit/db"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/utils"
 
 	"github.com/alecthomas/kong"
 )

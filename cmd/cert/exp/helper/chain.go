@@ -20,8 +20,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"pkit/db/base"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 func GetCertificateChain(ctx context.Context, query base.Querier, current *x509.Certificate) ([]*x509.Certificate, error) {

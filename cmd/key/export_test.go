@@ -19,9 +19,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"pkit/db/base"
-	"pkit/domain"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/domain"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 func TestExportCmd_Run(t *testing.T) {

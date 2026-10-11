@@ -24,7 +24,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 type InspectCmd struct {

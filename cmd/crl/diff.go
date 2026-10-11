@@ -22,9 +22,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"pkit/cmd/helper"
-	"pkit/db/base"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/cmd/helper"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 type DiffCmd struct {

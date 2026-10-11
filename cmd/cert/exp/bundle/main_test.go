@@ -20,9 +20,9 @@ import (
 	"os"
 	"testing"
 
-	"pkit/db"
-	"pkit/db/base"
-	"pkit/testutil"
+	"github.com/tassok-wasi/pkit/db"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/testutil"
 )
 
 var (

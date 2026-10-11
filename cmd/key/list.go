@@ -21,7 +21,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 type ListCmd struct {

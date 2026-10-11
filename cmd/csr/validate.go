@@ -21,7 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 type ValidateCmd struct {

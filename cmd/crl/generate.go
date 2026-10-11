@@ -28,8 +28,8 @@ import (
 	"strings"
 	"time"
 
-	"pkit/db/base"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 type GenerateCmd struct {

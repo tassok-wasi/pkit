@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 func TestDeleteCmd_Run(t *testing.T) {

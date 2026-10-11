@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"pkit/db/base"
-	"pkit/domain"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/domain"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 func TestDiffCmd_Run(t *testing.T) {

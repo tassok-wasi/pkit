@@ -17,7 +17,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"pkit/db/base"
+
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 // RunInTx wraps operations inside an atomic SQLite transaction

@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 func TestIssueCertificate(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 func TestRunInTx(t *testing.T) {

@@ -15,8 +15,8 @@
 package cert
 
 import (
-	"pkit/cmd/cert/exp"
-	"pkit/cmd/cert/gen"
+	"github.com/tassok-wasi/pkit/cmd/cert/exp"
+	"github.com/tassok-wasi/pkit/cmd/cert/gen"
 )
 
 type CertCmd struct {

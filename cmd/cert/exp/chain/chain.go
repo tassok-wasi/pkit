@@ -21,9 +21,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"pkit/cmd/cert/exp/helper"
-	"pkit/db/base"
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/cmd/cert/exp/helper"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 type ChainCmd struct {

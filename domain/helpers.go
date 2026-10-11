@@ -20,7 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 // Helper to get KeyPair based on the type

@@ -19,7 +19,7 @@ import (
 	"os"
 	"testing"
 
-	"pkit/testutil"
+	"github.com/tassok-wasi/pkit/testutil"
 )
 
 // testDB will hold our in-memory database connection for all db package tests

@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 func TestListCmd_Run(t *testing.T) {

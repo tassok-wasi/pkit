@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"time"
 
-	"pkit/utils"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 // CertType defines the role of the certificate in the PKI hierarchy.

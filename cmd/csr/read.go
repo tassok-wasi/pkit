@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"pkit/db/base"
+	"github.com/tassok-wasi/pkit/db/base"
 )
 
 type ReadCmd struct {

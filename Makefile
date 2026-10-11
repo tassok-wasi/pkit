@@ -9,12 +9,6 @@ LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.Bu
 
 .DEFAULT_GOAL := help
 
-## run: compiles and runs the application locally
-.PHONY: run
-run:
-	@go run certman
-
-
 ## tidy: cleans up and downloads go modules
 .PHONY: tidy
 tidy:

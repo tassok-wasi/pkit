@@ -24,10 +24,10 @@ import (
 	"fmt"
 	"log"
 
-	_db_ "pkit/db"
-	"pkit/db/base"
-	"pkit/domain"
-	"pkit/utils"
+	_db_ "github.com/tassok-wasi/pkit/db"
+	"github.com/tassok-wasi/pkit/db/base"
+	"github.com/tassok-wasi/pkit/domain"
+	"github.com/tassok-wasi/pkit/utils"
 )
 
 type SignCmd struct {
