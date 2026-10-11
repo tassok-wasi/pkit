@@ -1,11 +1,12 @@
 BINARY_NAME=pkit
 BUILD_DIR=bin
+CMD_PKG=./cmd/pkit
 VERSION?=1.0.0
 COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # LDFLAGS injects variables into the binary at build time
-LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}"
+LDFLAGS=-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}
 
 .DEFAULT_GOAL := help
 
@@ -50,7 +51,7 @@ test/cover:
 build: tidy fmt
 	@echo "Building binary..."
 	@mkdir -p $(BUILD_DIR)
-	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) pkit
+	@go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PKG)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 
@@ -59,10 +60,10 @@ build: tidy fmt
 build/cross: tidy fmt
 	@echo "=> Cross-compiling for multiple platforms..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 pkit
-	GOOS=linux GOARCH=arm go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm pkit
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe pkit
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 pkit
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_PKG)
+	GOOS=linux GOARCH=arm go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm $(CMD_PKG)
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_PKG)
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(CMD_PKG)
 
 
 ## clean: Removes the build directory and test artifacts
