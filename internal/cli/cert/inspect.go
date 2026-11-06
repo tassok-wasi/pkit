@@ -30,7 +30,7 @@ import (
 )
 
 type InspectCmd struct {
-	ID          string `arg:"" help:"short ID of the certificate to inspect."`
+	ID          string `arg:"" help:"ID of the certificate to inspect."`
 	Fingerprint bool   `name:"fingerprint" short:"f" help:"Display SHA-1 and SHA-256 certificate fingerprints."`
 	Usage       bool   `name:"key-usages" short:"u" help:"Display X.509 key usage and extended key usage flags."`
 	Extensions  bool   `name:"extensions" short:"e" help:"Display X.509 structural extension attributes."`

@@ -22,7 +22,7 @@ import (
 )
 
 type ExportCmd struct {
-	ID     string `arg:"" help:"short ID of the key pair to export."`
+	ID     string `arg:"" help:"ID of the key pair to export."`
 	Path   string `name:"path" short:"p" help:"Destination directory or file path for the exported key pair."`
 	Format string `name:"format" short:"f" default:"pem" help:"File format for the exported key pair (e.g., pem, der)."`
 	Blob   bool   `name:"blob" short:"b" help:"Export the private key as an encrypted binary blob."`

@@ -24,8 +24,8 @@ import (
 )
 
 type DiffCmd struct {
-	ID1 string `arg:"" help:"short ID of the first CSR to compare."`
-	ID2 string `arg:"" help:"short ID of the second CSR to compare."`
+	ID1 string `arg:"" help:"ID of the first CSR to compare."`
+	ID2 string `arg:"" help:"ID of the second CSR to compare."`
 }
 
 func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {

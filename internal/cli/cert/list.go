@@ -48,7 +48,7 @@ func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 	fmt.Fprintln(w, "ID\tSERIAL NUMBER\tCOMMON NAME\tTYPE\tSTATUS\tCREATED AT")
-	fmt.Fprintln(w, "--\t-----\t-----------\t----\t------\t---------")
+	fmt.Fprintln(w, "--\t-------------\t-----------\t----\t------\t----------")
 
 	for _, cert := range certs {
 		createdAt := "N/A"

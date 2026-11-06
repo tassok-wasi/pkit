@@ -22,7 +22,7 @@ import (
 )
 
 type StandaloneCmd struct {
-	ID     string `arg:"" help:"short ID of the certificate to export."`
+	ID     string `arg:"" help:"ID of the certificate to export."`
 	Path   string `name:"path" short:"p" help:"Destination directory or file path for the exported certificate."`
 	Format string `name:"format" short:"f" required:"" enum:"pem,der" default:"pem" help:"File format for the exported certificate."`
 }

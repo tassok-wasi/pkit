@@ -22,14 +22,14 @@ import (
 )
 
 type SignCmd struct {
-	ID           string   `arg:"" help:"short ID of the CSR to sign."`
+	ID           string   `arg:"" help:"ID of the CSR to sign."`
 	Type         string   `name:"type" required:"" help:"Type of certificate to issue (e.g., CA, INTERMEDIATE, LEAF)."`
 	TTL          string   `name:"ttl" required:"" default:"8760h" help:"Validity duration/time-to-live for the issued certificate (e.g., 8760h, 30d, 1y)."`
 	KeyUsages    []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Key usage extensions to enable (can be specified multiple times or comma-separated)."`
 	ExtKeyUsages []string `name:"eku" enum:"any,server-auth,client-auth,code-signing,email-protection,time-stamping,ocsp-signing" help:"Extended key usage (EKU) extensions to enable (can be specified multiple times or comma-separated)."`
 	PathLen      *int     `name:"path-len" help:"Maximum allowed path length for downstream CA certificates (omit for no constraint, 0 for leaf-only)."`
 
-	IssuerID string `name:"iss" help:"short ID of the issuing parent certificate."`
+	IssuerID string `name:"iss" help:"ID of the issuing parent certificate."`
 }
 
 func (sc *SignCmd) Run(ctx context.Context, svc *service.Service) error {

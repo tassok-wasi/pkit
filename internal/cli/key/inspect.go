@@ -30,7 +30,7 @@ import (
 )
 
 type InspectCmd struct {
-	ID       string `arg:"" help:"short ID of the key pair to inspect."`
+	ID       string `arg:"" help:"ID of the key pair to inspect."`
 	Validate bool   `name:"validate" short:"v" help:"Verify the mathematical integrity and validity of the private key."`
 }
 

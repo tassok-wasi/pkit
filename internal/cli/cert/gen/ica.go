@@ -37,8 +37,8 @@ type ICACmd struct {
 	ExtKeyUsages       []string `name:"eku" enum:"any,server-auth,client-auth,code-signing,email-protection,time-stamping,ocsp-signing" help:"Extended key usage (EKU) extensions to enable (can be specified multiple times or comma-separated)."`
 	PathLen            *int     `name:"path-len" help:"Maximum allowed path length for downstream CA certificates (omit for no constraint, 0 for leaf-only)."`
 
-	IssuerID string `name:"iss" help:"short ID of the issuing parent certificate."`
-	KeyID    string `name:"kid" short:"k" help:"short ID of the key pair; a new key is generated automatically when omitted."`
+	IssuerID string `name:"iss" help:"ID of the issuing parent certificate."`
+	KeyID    string `name:"kid" short:"k" help:"ID of the key pair; a new key is generated automatically when omitted."`
 	KeyType  string `name:"key-type" enum:"rsa-2048,rsa-4096,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"Algorithm for the automatically generated key pair (ignored when --kid is provided)."`
 }
 

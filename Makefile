@@ -51,7 +51,7 @@ test/cover:
 build: tidy fmt
 	@echo "Building binary..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PKG)
+	@go build -a -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_PKG)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 
@@ -60,10 +60,10 @@ build: tidy fmt
 build/cross: tidy fmt
 	@echo "=> Cross-compiling for multiple platforms..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_PKG)
-	GOOS=linux GOARCH=arm go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm $(CMD_PKG)
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_PKG)
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(CMD_PKG)
+	GOOS=linux GOARCH=amd64 go build -a -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_PKG)
+	GOOS=linux GOARCH=arm go build -a -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm $(CMD_PKG)
+	GOOS=windows GOARCH=amd64 go build -a -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_PKG)
+	GOOS=darwin GOARCH=amd64 go build -a -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(CMD_PKG)
 
 
 ## clean: Removes the build directory and test artifacts

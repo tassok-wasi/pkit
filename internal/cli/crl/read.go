@@ -24,7 +24,7 @@ import (
 )
 
 type ReadCmd struct {
-	ID string `arg:"" help:"short ID of the CRL to display."`
+	ID string `arg:"" help:"ID of the CRL to display."`
 }
 
 func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {

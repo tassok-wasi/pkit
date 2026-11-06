@@ -22,7 +22,7 @@ import (
 )
 
 type VerifyCmd struct {
-	ID string `arg:"" help:"short ID of the key pair to verify."`
+	ID string `arg:"" help:"ID of the key pair to verify."`
 }
 
 func (vc *VerifyCmd) Run(ctx context.Context, svc *service.Service) error {

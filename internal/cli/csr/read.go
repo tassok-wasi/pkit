@@ -23,7 +23,7 @@ import (
 )
 
 type ReadCmd struct {
-	ID string `arg:"" help:"short ID of the CSR to display."`
+	ID string `arg:"" help:"ID of the CSR to display."`
 }
 
 func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {

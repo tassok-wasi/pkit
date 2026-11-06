@@ -23,7 +23,7 @@ import (
 )
 
 type RenameCmd struct {
-	ID   string `arg:"" help:"short ID of the key pair to rename."`
+	ID   string `arg:"" help:"ID of the key pair to rename."`
 	Name string `name:"name" short:"n" required:"" help:"New friendly name for the key pair."`
 }
 

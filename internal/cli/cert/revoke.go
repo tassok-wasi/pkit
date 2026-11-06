@@ -21,7 +21,7 @@ import (
 )
 
 type RevokeCmd struct {
-	ID     string `arg:"" help:"short ID of the certificate to revoke."`
+	ID     string `arg:"" help:"ID of the certificate to revoke."`
 	Reason string `name:"reason" short:"r" required:"" enum:"unspecified,key-compromise,ca-compromise,affiliation-changed,superseded,cessation-of-operation,certificate-hold,privilege-withdrawn,a-a-compromise" help:"Revocation reason code for the certificate."`
 }
 

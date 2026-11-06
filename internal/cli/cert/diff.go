@@ -24,8 +24,8 @@ import (
 )
 
 type DiffCmd struct {
-	ID1 string `arg:"" help:"short ID of the first certificate to compare."`
-	ID2 string `arg:"" help:"short ID of the second certificate to compare."`
+	ID1 string `arg:"" help:"ID of the first certificate to compare."`
+	ID2 string `arg:"" help:"ID of the second certificate to compare."`
 }
 
 func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {

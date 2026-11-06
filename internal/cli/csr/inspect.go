@@ -26,7 +26,7 @@ import (
 )
 
 type InspectCmd struct {
-	ID string `arg:"" help:"short ID of the CSR to inspect."`
+	ID string `arg:"" help:"ID of the CSR to inspect."`
 }
 
 func (ic *InspectCmd) Run(ctx context.Context, svc *service.Service) error {

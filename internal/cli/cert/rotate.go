@@ -21,9 +21,9 @@ import (
 )
 
 type RotateCmd struct {
-	ID       string `arg:"" help:"short ID of the certificate to rotate."`
-	IssuerID string `name:"iss" help:"short ID of the issuing parent certificate (optional for self-signed Root CAs)."`
-	KeyID    string `name:"kid" help:"short ID of the new key pair; a new key is generated automatically when omitted."`
+	ID       string `arg:"" help:"ID of the certificate to rotate."`
+	IssuerID string `name:"iss" help:"ID of the issuing parent certificate (optional for self-signed Root CAs)."`
+	KeyID    string `name:"kid" help:"ID of the new key pair; a new key is generated automatically when omitted."`
 	KeyType  string `name:"key-type" enum:"rsa-2048,rsa-4096,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"Algorithm for the automatically generated key pair (ignored when --kid is provided)."`
 }
 

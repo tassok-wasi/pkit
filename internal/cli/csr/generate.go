@@ -39,7 +39,7 @@ type GenerateCmd struct {
 	IPAddresses        []string `name:"ip" help:"IP address Subject Alternative Names (SANs)."`
 	URIs               []string `name:"uri" help:"URI Subject Alternative Names (SANs)."`
 
-	KeyID string `name:"kid" short:"k" help:"short ID of the key pair; a new key is generated automatically when omitted."`
+	KeyID string `name:"kid" short:"k" help:"ID of the key pair; a new key is generated automatically when omitted."`
 }
 
 func (gc *GenerateCmd) Run(ctx context.Context, svc *service.Service) error {

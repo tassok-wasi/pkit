@@ -209,6 +209,12 @@ pkit cert export chain 1 --path ./chain --format pem
 # Full chain (PKCS#7)
 pkit cert export chain 1 --path ./chain --format pkcs7
 
+# CA trust chain only, excluding the leaf
+pkit cert export chain 1 --path ./trust --format pem --trust
+
+# Explicitly export the full chain including the leaf (default)
+pkit cert export chain 1 --path ./chain --format pem --full
+
 # PKCS#12 bundle (with private key)
 pkit cert export bundle 1 --path ./bundle --format pkcs12 --pass-phrase "secret"
 ```

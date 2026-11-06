@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/pem"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -118,17 +119,64 @@ func TestChainCmd_Run(t *testing.T) {
 		checkFiles func(t *testing.T, targetDir string)
 	}{
 		{
-			name: "export chain in PEM format",
+			name: "export full chain in PEM format",
 			cmd: ChainCmd{
 				ID:     dbLeafCert.ID,
 				Path:   filepath.Join(tmpDir, "chain_pem"),
 				Format: "pem",
+				Full:   true,
 			},
 			wantErr: false,
 			checkFiles: func(t *testing.T, targetDir string) {
-				path := filepath.Join(targetDir, "exp_chain_leaf_cert_chain.pem")
+				path := filepath.Join(targetDir, "exp_chain_leaf_cert_fullchain.pem")
 				if _, err := os.Stat(path); os.IsNotExist(err) {
 					t.Errorf("expected chain file at %s", path)
+				}
+			},
+		},
+		{
+			name: "export CA trust chain in PEM format without leaf",
+			cmd: ChainCmd{
+				ID:     dbLeafCert.ID,
+				Path:   filepath.Join(tmpDir, "trust_pem"),
+				Format: "pem",
+				Trust:  true,
+			},
+			wantErr: false,
+			checkFiles: func(t *testing.T, targetDir string) {
+				path := filepath.Join(targetDir, "exp_chain_leaf_cert_ca_trust.pem")
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("expected CA trust file at %s: %v", path, err)
+				}
+
+				var subjects []string
+				for block, rest := pem.Decode(data); block != nil; block, rest = pem.Decode(rest) {
+					cert, err := x509.ParseCertificate(block.Bytes)
+					if err != nil {
+						t.Fatalf("failed to parse exported certificate: %v", err)
+					}
+					subjects = append(subjects, cert.Subject.CommonName)
+				}
+
+				if len(subjects) != 1 || subjects[0] != "Exp Chain Root CA" {
+					t.Errorf("expected only the root CA, got %v", subjects)
+				}
+			},
+		},
+		{
+			name: "export CA trust chain in PKCS7 format",
+			cmd: ChainCmd{
+				ID:     dbLeafCert.ID,
+				Path:   filepath.Join(tmpDir, "trust_p7b"),
+				Format: "pkcs7",
+				Trust:  true,
+			},
+			wantErr: false,
+			checkFiles: func(t *testing.T, targetDir string) {
+				path := filepath.Join(targetDir, "exp_chain_leaf_cert_ca_trust.p7b")
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					t.Errorf("expected PKCS7 CA trust file at %s", path)
 				}
 			},
 		},
@@ -141,7 +189,7 @@ func TestChainCmd_Run(t *testing.T) {
 			},
 			wantErr: false,
 			checkFiles: func(t *testing.T, targetDir string) {
-				path := filepath.Join(targetDir, "exp_chain_leaf_cert_chain.p7b")
+				path := filepath.Join(targetDir, "exp_chain_leaf_cert_fullchain.p7b")
 				if _, err := os.Stat(path); os.IsNotExist(err) {
 					t.Errorf("expected PKCS7 chain file at %s", path)
 				}

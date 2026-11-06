@@ -26,7 +26,7 @@ import (
 type ListCmd struct {
 	Limit    int    `name:"limit" short:"l" help:"Maximum number of CRLs to display."`
 	Offset   int    `name:"offset" short:"o" help:"Number of initial rows to skip for pagination."`
-	IssuerID string `name:"iss" required:"" help:"Filter CRLs by the issuing certificate's short ID."`
+	IssuerID string `name:"iss" required:"" help:"Filter CRLs by the issuing certificate's ID."`
 }
 
 func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {

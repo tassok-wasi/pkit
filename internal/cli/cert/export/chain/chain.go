@@ -22,16 +22,19 @@ import (
 )
 
 type ChainCmd struct {
-	ID     string `arg:"" help:"short ID of the leaf certificate whose certificate chain to export."`
+	ID     string `arg:"" help:"ID of the leaf certificate whose certificate chain to export."`
 	Path   string `name:"path" type:"path" help:"Destination directory or file path for the exported chain."`
 	Format string `name:"format" short:"f" required:"" enum:"pem,pkcs7" default:"pem" help:"File format for the exported chain."`
+	Full   bool   `name:"full" xor:"chain-scope" help:"Export the full chain including the leaf certificate (default)."`
+	Trust  bool   `name:"trust" xor:"chain-scope" help:"Export only the CA trust chain, excluding the leaf certificate."`
 }
 
 func (cc *ChainCmd) Run(ctx context.Context, svc *service.Service) error {
 	outPath, err := svc.ExportCertificateChain(ctx, service.ExportRequest{
-		ID:     cc.ID,
-		Path:   cc.Path,
-		Format: cc.Format,
+		ID:        cc.ID,
+		Path:      cc.Path,
+		Format:    cc.Format,
+		TrustOnly: cc.Trust,
 	})
 	if err != nil {
 		return err

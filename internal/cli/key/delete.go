@@ -22,7 +22,7 @@ import (
 )
 
 type DeleteCmd struct {
-	ID string `arg:"" help:"short ID of the key pair to delete."`
+	ID string `arg:"" help:"ID of the key pair to delete."`
 }
 
 func (dc *DeleteCmd) Run(ctx context.Context, svc *service.Service) error {

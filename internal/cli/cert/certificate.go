@@ -30,5 +30,5 @@ type CertCmd struct {
 	Revoke   RevokeCmd        `cmd:"" help:"Revoke an active certificate with a specified reason code."`
 	Rotate   RotateCmd        `cmd:"" help:"Rotate an existing certificate with a newly generated key pair."`
 	Delete   DeleteCmd        `cmd:"" help:"Delete an existing certificate from the database."`
-	Export   export.ExportCmd `cmd:"" help:"Export certificates, full chains, or PKCS#12 bundles."`
+	Export   export.ExportCmd `cmd:"" help:"Export certificates, full chains, CA trust chains, or PKCS#12 bundles."`
 }

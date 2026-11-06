@@ -22,7 +22,7 @@ import (
 )
 
 type ValidateCmd struct {
-	ID string `arg:"" help:"short ID of the CSR to validate."`
+	ID string `arg:"" help:"ID of the CSR to validate."`
 }
 
 func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {

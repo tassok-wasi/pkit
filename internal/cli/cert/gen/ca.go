@@ -35,7 +35,7 @@ type CACmd struct {
 	TTL                string   `name:"ttl" required:"" default:"86400h" help:"Validity duration/time-to-live for the certificate (e.g., 8760h, 30d, 10y)."`
 	KeyUsages          []string `name:"ku" enum:"digital-signature,content-commitment,key-encipherment,data-encipherment,key-agreement,cert-sign,crl-sign,encipher-only,decipher-only" help:"Key usage extensions to enable (can be specified multiple times or comma-separated)."`
 
-	KeyID   string `name:"kid" short:"k" help:"short ID of the key pair; a new key is generated automatically when omitted."`
+	KeyID   string `name:"kid" short:"k" help:"ID of the key pair; a new key is generated automatically when omitted."`
 	KeyType string `name:"key-type" enum:"rsa-2048,rsa-4096,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"Algorithm for the automatically generated key pair (ignored when --kid is provided)."`
 }
 

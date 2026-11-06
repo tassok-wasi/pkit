@@ -24,7 +24,7 @@ import (
 )
 
 type VerifyCmd struct {
-	ID string `arg:"" help:"short ID of the CSR to verify."`
+	ID string `arg:"" help:"ID of the CSR to verify."`
 }
 
 func (vc *VerifyCmd) Run(ctx context.Context, svc *service.Service) error {

@@ -22,7 +22,7 @@ import (
 )
 
 type ExportCmd struct {
-	ID     string `arg:"" help:"short ID of the CRL to export."`
+	ID     string `arg:"" help:"ID of the CRL to export."`
 	Path   string `name:"path" short:"p" help:"Destination directory or file path for the exported CRL."`
 	Format string `name:"format" short:"f" default:"pem" help:"File format for the exported CRL (e.g., pem, der)."`
 }

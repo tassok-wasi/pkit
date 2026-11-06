@@ -89,6 +89,8 @@ type ExportRequest struct {
 	ID     string
 	Path   string
 	Format string
+	// TrustOnly exports only the CA trust chain, excluding the leaf certificate.
+	TrustOnly bool
 }
 
 // ExportBundleRequest describes a certificate + key bundle export.
@@ -576,8 +578,10 @@ func (s *Service) ExportCertificate(ctx context.Context, req ExportRequest) (str
 	return certFilePath, nil
 }
 
-// ExportCertificateChain writes the full certificate chain to disk in PEM or
-// PKCS#7 format and returns the written path.
+// ExportCertificateChain writes a certificate chain to disk in PEM or PKCS#7
+// format and returns the written path. By default the full chain, including
+// the leaf certificate, is written. When req.TrustOnly is set, only the CA
+// trust chain (issuing intermediates and root) is written.
 func (s *Service) ExportCertificateChain(ctx context.Context, req ExportRequest) (string, error) {
 	ext := ".pem"
 	if req.Format == "pkcs7" {
@@ -598,17 +602,24 @@ func (s *Service) ExportCertificateChain(ctx context.Context, req ExportRequest)
 		return "", err
 	}
 
+	leaf := cert
+	nameSuffix := "_fullchain"
+	if req.TrustOnly {
+		leaf = nil
+		nameSuffix = "_ca_trust"
+	}
+
 	var data []byte
 	if req.Format == "pkcs7" {
-		data, err = pki.GetPKCS7Chain(cert, chain)
+		data, err = pki.GetPKCS7Chain(leaf, chain)
 	} else {
-		data, err = pki.GetPEMChain(cert, chain)
+		data, err = pki.GetPEMChain(leaf, chain)
 	}
 	if err != nil {
 		return "", err
 	}
 
-	defaultFileName := crypto.SanitizeFilename(cert.Subject.CommonName, "chain") + "_chain"
+	defaultFileName := crypto.SanitizeFilename(cert.Subject.CommonName, "chain") + nameSuffix
 	outPath, err := crypto.ResolveDestinationPath(req.Path, crypto.ToSnakeCase(defaultFileName), ext)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve target path: %w", err)
