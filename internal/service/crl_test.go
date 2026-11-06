@@ -16,35 +16,38 @@ package service
 
 import (
 	"testing"
-	"time"
 )
 
 func TestFormatCRLName(t *testing.T) {
 	t.Parallel()
 
-	now := time.Date(2026, time.July, 20, 4, 53, 57, 0, time.UTC)
-
 	tests := []struct {
 		name       string
 		commonName string
+		issuerID   string
+		crlNumber  int64
 		want       string
 	}{
 		{
 			name:       "replaces spaces with underscores",
 			commonName: "My Test Root CA",
-			want:       "My_Test_Root_CA_20260720_045357",
+			issuerID:   "abc123",
+			crlNumber:  5,
+			want:       "My_Test_Root_CA_abc123_crl_5",
 		},
 		{
 			name:       "handles single word common name",
 			commonName: "RootCA",
-			want:       "RootCA_20260720_045357",
+			issuerID:   "def456",
+			crlNumber:  1,
+			want:       "RootCA_def456_crl_1",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := formatCRLName(tt.commonName, now)
+			got := formatCRLName(tt.commonName, tt.issuerID, tt.crlNumber)
 			if got != tt.want {
 				t.Errorf("formatCRLName() = %v, want %v", got, tt.want)
 			}

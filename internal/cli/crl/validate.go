@@ -22,7 +22,7 @@ import (
 )
 
 type ValidateCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CRL to validate."`
+	ID string `arg:"" help:"short ID of the CRL to validate."`
 }
 
 func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -36,7 +36,7 @@ func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Validating CRL ID %d [%s]...\n\n", vc.ID, dbCRL.Name)
+	fmt.Printf("Validating CRL ID %s [%s]...\n\n", vc.ID, dbCRL.Name)
 
 	// Output Warnings
 	if len(result.Warnings) > 0 {

@@ -40,7 +40,7 @@ type GenerateCSRRequest struct {
 	Subject pkix.Name
 	SANs    pki.SANs
 	KeyType string
-	KeyID   int64
+	KeyID   string
 }
 
 // ListCSRsRequest filters and paginates a CSR listing.
@@ -52,22 +52,22 @@ type ListCSRsRequest struct {
 
 // CSRSummary is a normalized row for listing CSRs.
 type CSRSummary struct {
-	ID            int64
+	ID            string
 	CommonName    string
-	KeyID         int64
+	KeyID         string
 	Status        string
-	CertificateID sql.NullInt64
+	CertificateID sql.NullString
 }
 
 // SignCSRRequest describes signing a pending CSR into a certificate.
 type SignCSRRequest struct {
-	ID           int64
+	ID           string
 	Type         string
 	TTL          string
 	KeyUsages    []string
 	ExtKeyUsages []string
-	PathLen      int
-	IssuerID     int64
+	PathLen      *int
+	IssuerID     string
 }
 
 // CSRVerifyResult carries the outcome of a CSR integrity check.
@@ -78,10 +78,17 @@ type CSRVerifyResult struct {
 }
 
 // GenerateCSR builds a certificate signing request and persists it.
-func (s *Service) GenerateCSR(ctx context.Context, req GenerateCSRRequest) (sqlc.Csr, error) {
-	dbKey, err := s.q.GetKeyByID(ctx, req.KeyID)
+func (s *Service) GenerateCSR(ctx context.Context, req GenerateCSRRequest) (created sqlc.Csr, retErr error) {
+	dbKey, autoKey, err := s.resolveKey(ctx, req.KeyID, req.Subject.CommonName, pki.TypeLeaf, req.KeyType)
 	if err != nil {
-		return sqlc.Csr{}, fmt.Errorf("failed to fetch Key from DB: %w", err)
+		return sqlc.Csr{}, fmt.Errorf("failed to resolve key for CSR: %w", err)
+	}
+	if autoKey {
+		defer func() {
+			if retErr != nil {
+				_ = s.q.DeleteKeyByID(ctx, dbKey.ID)
+			}
+		}()
 	}
 
 	privateKey, _, err := parseKeyRecord(dbKey)
@@ -120,13 +127,16 @@ func (s *Service) GenerateCSR(ctx context.Context, req GenerateCSRRequest) (sqlc
 		return sqlc.Csr{}, err
 	}
 
-	return s.q.CreateCSR(ctx, sqlc.CreateCSRParams{
-		CommonName:    csrTemplate.Subject.CommonName,
-		KeyID:         dbKey.ID,
-		Status:        "PENDING",
-		CsrPem:        string(csrPem),
-		CertificateID: sql.NullInt64{Int64: 0, Valid: false},
+	created, retErr = createWithIDRetry("csrs", func() (sqlc.Csr, error) {
+		return s.q.CreateCSR(ctx, sqlc.CreateCSRParams{
+			CommonName:    csrTemplate.Subject.CommonName,
+			KeyID:         dbKey.ID,
+			Status:        "PENDING",
+			CsrPem:        string(csrPem),
+			CertificateID: sql.NullString{},
+		})
 	})
+	return created, retErr
 }
 
 // ListCSRs returns CSRs matching the given filters.
@@ -173,7 +183,7 @@ func (s *Service) ListCSRs(ctx context.Context, req ListCSRsRequest) ([]CSRSumma
 }
 
 // GetCSR returns the raw stored record for a CSR.
-func (s *Service) GetCSR(ctx context.Context, id int64) (sqlc.Csr, error) {
+func (s *Service) GetCSR(ctx context.Context, id string) (sqlc.Csr, error) {
 	rec, err := s.q.GetCSRByID(ctx, id)
 	if err != nil {
 		return sqlc.Csr{}, fmt.Errorf("failed to fetch CSR from DB: %w", err)
@@ -182,7 +192,7 @@ func (s *Service) GetCSR(ctx context.Context, id int64) (sqlc.Csr, error) {
 }
 
 // GetParsedCSR returns the parsed X.509 certificate request for a stored record.
-func (s *Service) GetParsedCSR(ctx context.Context, id int64) (*x509.CertificateRequest, error) {
+func (s *Service) GetParsedCSR(ctx context.Context, id string) (*x509.CertificateRequest, error) {
 	rec, err := s.q.GetCSRByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch CSR from DB: %w", err)
@@ -191,7 +201,7 @@ func (s *Service) GetParsedCSR(ctx context.Context, id int64) (*x509.Certificate
 }
 
 // VerifyCSR checks the self-signature, key strength, and stored-key match of a CSR.
-func (s *Service) VerifyCSR(ctx context.Context, id int64) (CSRVerifyResult, error) {
+func (s *Service) VerifyCSR(ctx context.Context, id string) (CSRVerifyResult, error) {
 	csrRecord, err := s.q.GetCSRByID(ctx, id)
 	if err != nil {
 		return CSRVerifyResult{}, fmt.Errorf("failed to fetch CSR from DB: %w", err)
@@ -220,7 +230,7 @@ func (s *Service) VerifyCSR(ctx context.Context, id int64) (CSRVerifyResult, err
 		keyDetail = fmt.Sprintf("%T", pub)
 	}
 
-	if csrRecord.KeyID != 0 {
+	if csrRecord.KeyID != "" {
 		keyRecord, err := s.q.GetKeyByID(ctx, csrRecord.KeyID)
 		if err == nil {
 			keyBlock, _ := pem.Decode([]byte(keyRecord.PublicKeyPem))
@@ -247,7 +257,7 @@ func (s *Service) VerifyCSR(ctx context.Context, id int64) (CSRVerifyResult, err
 }
 
 // ValidateCSR runs sanity and policy checks on a stored CSR.
-func (s *Service) ValidateCSR(ctx context.Context, id int64) (pki.ValidationResult, error) {
+func (s *Service) ValidateCSR(ctx context.Context, id string) (pki.ValidationResult, error) {
 	csr, err := s.GetParsedCSR(ctx, id)
 	if err != nil {
 		return pki.ValidationResult{}, err
@@ -256,23 +266,23 @@ func (s *Service) ValidateCSR(ctx context.Context, id int64) (pki.ValidationResu
 }
 
 // DiffCSRs compares two stored CSRs.
-func (s *Service) DiffCSRs(ctx context.Context, id1, id2 int64) (DiffResult, error) {
+func (s *Service) DiffCSRs(ctx context.Context, id1, id2 string) (DiffResult, error) {
 	rec1, err := s.q.GetCSRByID(ctx, id1)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to fetch CSR ID %d: %w", id1, err)
+		return DiffResult{}, fmt.Errorf("failed to fetch CSR ID %s: %w", id1, err)
 	}
 	rec2, err := s.q.GetCSRByID(ctx, id2)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to fetch CSR ID %d: %w", id2, err)
+		return DiffResult{}, fmt.Errorf("failed to fetch CSR ID %s: %w", id2, err)
 	}
 
 	csr1, err := crypto.ParseCSR(rec1.CsrPem)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to parse CSR ID %d: %w", id1, err)
+		return DiffResult{}, fmt.Errorf("failed to parse CSR ID %s: %w", id1, err)
 	}
 	csr2, err := crypto.ParseCSR(rec2.CsrPem)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to parse CSR ID %d: %w", id2, err)
+		return DiffResult{}, fmt.Errorf("failed to parse CSR ID %s: %w", id2, err)
 	}
 
 	return DiffResult{
@@ -293,10 +303,33 @@ func (s *Service) SignCSR(ctx context.Context, req SignCSRRequest) (sqlc.Certifi
 	if err != nil {
 		return sqlc.Certificate{}, fmt.Errorf("failed to fetch CSR from DB: %w", err)
 	}
+	if dbCsr.Status != "PENDING" {
+		return sqlc.Certificate{}, fmt.Errorf("CSR %s is not pending (status: %s)", dbCsr.ID, dbCsr.Status)
+	}
 
 	csr, err := crypto.ParseCSR(dbCsr.CsrPem)
 	if err != nil {
 		return sqlc.Certificate{}, err
+	}
+	if err := csr.CheckSignature(); err != nil {
+		return sqlc.Certificate{}, fmt.Errorf("CSR signature verification failed: %w", err)
+	}
+
+	keyRecord, err := s.q.GetKeyByID(ctx, dbCsr.KeyID)
+	if err != nil {
+		return sqlc.Certificate{}, fmt.Errorf("failed to fetch CSR key from DB: %w", err)
+	}
+	_, storedPublicKey, err := parseKeyRecord(keyRecord)
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
+	if !pubKeysEqual(csr.PublicKey, storedPublicKey) {
+		return sqlc.Certificate{}, errors.New("CSR public key does not match the associated stored key pair")
+	}
+
+	certType := pki.CertType(req.Type)
+	if certType != pki.TypeLeaf && certType != pki.TypeIntermediate {
+		return sqlc.Certificate{}, fmt.Errorf("unsupported certificate type for CSR signing: %s", req.Type)
 	}
 
 	issuerCert, issuerPrivateKey, issuerSerial, err := s.resolveIssuer(ctx, req.IssuerID)
@@ -304,7 +337,14 @@ func (s *Service) SignCSR(ctx context.Context, req SignCSRRequest) (sqlc.Certifi
 		return sqlc.Certificate{}, err
 	}
 
-	certType := pki.CertType(req.Type)
+	keyUsages, err := crypto.ParseKeyUsages(req.KeyUsages)
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
+	extKeyUsages, err := crypto.ParseExtKeyUsages(req.ExtKeyUsages)
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
 
 	cert, err := pki.IssueCertificate(pki.CertOptions{
 		Type:    certType,
@@ -322,10 +362,10 @@ func (s *Service) SignCSR(ctx context.Context, req SignCSRRequest) (sqlc.Certifi
 		ParentCert: issuerCert,
 		ParentKey:  issuerPrivateKey,
 		Usages: &pki.KeyUsageConfig{
-			KeyUsages:    crypto.ParseKeyUsages(req.KeyUsages),
-			ExtKeyUsages: crypto.ParseExtKeyUsages(req.ExtKeyUsages),
+			KeyUsages:    keyUsages,
+			ExtKeyUsages: extKeyUsages,
 		},
-		PathLen: &req.PathLen,
+		PathLen: req.PathLen,
 	})
 	if err != nil {
 		return sqlc.Certificate{}, fmt.Errorf("failed to issue certificate: %w", err)
@@ -339,13 +379,16 @@ func (s *Service) SignCSR(ctx context.Context, req SignCSRRequest) (sqlc.Certifi
 			return fmt.Errorf("failed to create Certificate in DB: %w", txErr)
 		}
 
-		txErr = txQuerier.UpdateCSRStatus(ctx, sqlc.UpdateCSRStatusParams{
+		updated, txErr := txQuerier.UpdateCSRStatus(ctx, sqlc.UpdateCSRStatusParams{
 			Status:        "SIGNED",
-			CertificateID: sql.NullInt64{Int64: created.ID, Valid: true},
-			CommonName:    dbCsr.CommonName,
+			CertificateID: sql.NullString{String: created.ID, Valid: true},
+			ID:            dbCsr.ID,
 		})
 		if txErr != nil {
 			return fmt.Errorf("failed to update csr status: %w", txErr)
+		}
+		if updated != 1 {
+			return fmt.Errorf("CSR %s is no longer pending", dbCsr.ID)
 		}
 
 		return nil

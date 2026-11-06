@@ -26,7 +26,7 @@ import (
 )
 
 type InspectCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CSR to inspect."`
+	ID string `arg:"" help:"short ID of the CSR to inspect."`
 }
 
 func (ic *InspectCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -44,7 +44,7 @@ func (ic *InspectCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	fmt.Fprintln(w, "FIELD\tVALUE")
 	fmt.Fprintln(w, "-----\t-----")
-	fmt.Fprintf(w, "ID\t%d\n", dbCsr.ID)
+	fmt.Fprintf(w, "ID\t%s\n", dbCsr.ID)
 	fmt.Fprintf(w, "Status\t%s\n", dbCsr.Status)
 	fmt.Fprintf(w, "Common Name (CN)\t%s\n", csr.Subject.CommonName)
 
@@ -87,7 +87,7 @@ func (ic *InspectCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	// Linked Certificate Serial (if already signed)
 	if dbCsr.CertificateID.Valid {
-		serialNumber, err := svc.GetCertificateSerialNumber(ctx, dbCsr.CertificateID.Int64)
+		serialNumber, err := svc.GetCertificateSerialNumber(ctx, dbCsr.CertificateID.String)
 		if err != nil {
 			return fmt.Errorf("failed to get Certificate Serial Number from db: %w", err)
 		}

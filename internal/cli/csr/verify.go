@@ -24,7 +24,7 @@ import (
 )
 
 type VerifyCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CSR to verify."`
+	ID string `arg:"" help:"short ID of the CSR to verify."`
 }
 
 func (vc *VerifyCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -42,7 +42,7 @@ func (vc *VerifyCmd) Run(ctx context.Context, svc *service.Service) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "PROPERTY\tVALUE\n")
 	fmt.Fprintf(w, "--------\t-----\n")
-	fmt.Fprintf(w, "CSR ID\t%d\n", csrRecord.ID)
+	fmt.Fprintf(w, "CSR ID\t%s\n", csrRecord.ID)
 	fmt.Fprintf(w, "Common Name\t%s\n", result.CSR.Subject.CommonName)
 	fmt.Fprintf(w, "DNS Names (SANs)\t%v\n", result.CSR.DNSNames)
 	fmt.Fprintf(w, "IP Addresses\t%v\n", result.CSR.IPAddresses)

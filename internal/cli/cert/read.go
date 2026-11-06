@@ -23,7 +23,7 @@ import (
 )
 
 type ReadCmd struct {
-	ID int64 `arg:"" help:"Database ID of the certificate to display."`
+	ID string `arg:"" help:"short ID of the certificate to display."`
 }
 
 func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {

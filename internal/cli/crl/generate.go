@@ -21,7 +21,7 @@ import (
 )
 
 type GenerateCmd struct {
-	IssuerID int64  `name:"iss" help:"Database ID of the issuing certificate to generate the CRL."`
+	IssuerID string `name:"iss" help:"short ID of the issuing certificate to generate the CRL."`
 	TTL      string `name:"ttl" default:"168h" required:"" help:"Validity duration/time-to-live until next update for the CRL (e.g., 168h, 7d, 1y)."`
 }
 

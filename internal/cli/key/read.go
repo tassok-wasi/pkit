@@ -22,11 +22,11 @@ import (
 )
 
 type ReadCmd struct {
-	ID int `arg:"" help:"Database ID of the key pair to display."`
+	ID string `arg:"" help:"short ID of the key pair to display."`
 }
 
 func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {
-	key, err := svc.GetKey(ctx, int64(rc.ID))
+	key, err := svc.GetKey(ctx, rc.ID)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {
 	fmt.Printf("\u2022 Name: %s\n", key.Name)
 	fmt.Printf("\u2022 Algorithm: %s\n", key.Algorithm)
 
-	privateKeyPem, publicKeyPem, err := svc.ReadKey(ctx, int64(rc.ID))
+	privateKeyPem, publicKeyPem, err := svc.ReadKey(ctx, rc.ID)
 	if err != nil {
 		return err
 	}

@@ -18,13 +18,16 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/tassok-wasi/pkit/internal/crypto"
 	"github.com/tassok-wasi/pkit/internal/pki"
+	"github.com/tassok-wasi/pkit/internal/service"
 	"github.com/tassok-wasi/pkit/internal/store/sqlc"
 )
 
@@ -108,16 +111,17 @@ func TestVerifyCmd_Run(t *testing.T) {
 	pemLeaf, _ := crypto.EncodeToPem(derLeaf, "CERTIFICATE")
 
 	dbLeafCert, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
-		SerialNumber:   "8002",
-		CommonName:     "Verify Leaf Cert",
-		Type:           "LEAF",
-		KeyID:          dbLeafKey.ID,
-		Skid:           hex.EncodeToString(leafSKID),
-		Akid:           hex.EncodeToString(rootSKID),
-		Status:         "ACTIVE",
-		NotBefore:      leafTmpl.NotBefore,
-		NotAfter:       leafTmpl.NotAfter,
-		CertificatePem: string(pemLeaf),
+		SerialNumber:       "8002",
+		CommonName:         "Verify Leaf Cert",
+		Type:               "LEAF",
+		KeyID:              dbLeafKey.ID,
+		IssuerSerialNumber: sql.NullString{String: "8001", Valid: true},
+		Skid:               hex.EncodeToString(leafSKID),
+		Akid:               hex.EncodeToString(rootSKID),
+		Status:             "ACTIVE",
+		NotBefore:          leafTmpl.NotBefore,
+		NotAfter:           leafTmpl.NotAfter,
+		CertificatePem:     string(pemLeaf),
 	})
 	if err != nil {
 		t.Fatalf("failed to seed leaf cert: %v", err)
@@ -145,7 +149,7 @@ func TestVerifyCmd_Run(t *testing.T) {
 		{
 			name: "verify non-existent cert ID",
 			cmd: VerifyCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},
@@ -158,5 +162,105 @@ func TestVerifyCmd_Run(t *testing.T) {
 				t.Fatalf("VerifyCmd.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestVerifyCmd_Run_RejectsRevokedCertificate(t *testing.T) {
+	// Reuse the fixtures from TestVerifyCmd_Run by issuing a fresh chain.
+	rootKp, _ := pki.GetKey(pki.ED25519)
+	rootPrivPem, rootPubPem, _ := crypto.ReturnPrivPubPem(rootKp.PrivateKey, rootKp.PublicKey)
+	dbRootKey, err := testQuerier.CreateKeyPair(testCtx, sqlc.CreateKeyPairParams{
+		Name:          "revoke-verify-root-key",
+		Algorithm:     "ed25519",
+		PrivateKeyPem: string(rootPrivPem),
+		PublicKeyPem:  string(rootPubPem),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed root key: %v", err)
+	}
+
+	serial := time.Now().UnixNano()
+	serialString := fmt.Sprintf("%x", serial)
+	rootSKID := []byte("revoke-verify-root-skid")
+	rootTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(serial),
+		Subject:               pkix.Name{CommonName: "Revoke Verify Root CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(240 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		SubjectKeyId:          rootSKID,
+		AuthorityKeyId:        rootSKID,
+	}
+	derRoot, err := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, rootKp.PublicKey, rootKp.PrivateKey)
+	if err != nil {
+		t.Fatalf("failed to create root: %v", err)
+	}
+	pemRoot, _ := crypto.EncodeToPem(derRoot, "CERTIFICATE")
+	dbRootCert, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
+		SerialNumber:   serialString,
+		CommonName:     "Revoke Verify Root CA",
+		Type:           "CA",
+		KeyID:          dbRootKey.ID,
+		Skid:           hex.EncodeToString(rootSKID),
+		Akid:           hex.EncodeToString(rootSKID),
+		Status:         "ACTIVE",
+		NotBefore:      rootTmpl.NotBefore,
+		NotAfter:       rootTmpl.NotAfter,
+		CertificatePem: string(pemRoot),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed root cert: %v", err)
+	}
+
+	leafKp, _ := pki.GetKey(pki.ED25519)
+	leafPrivPem, leafPubPem, _ := crypto.ReturnPrivPubPem(leafKp.PrivateKey, leafKp.PublicKey)
+	dbLeafKey, _ := testQuerier.CreateKeyPair(testCtx, sqlc.CreateKeyPairParams{
+		Name:          "revoke-verify-leaf-key",
+		Algorithm:     "ed25519",
+		PrivateKeyPem: string(leafPrivPem),
+		PublicKeyPem:  string(leafPubPem),
+	})
+	leafSKID := []byte("revoke-verify-leaf-skid")
+	leafTmpl := &x509.Certificate{
+		SerialNumber:   big.NewInt(serial + 1),
+		Subject:        pkix.Name{CommonName: "Revoke Verify Leaf"},
+		Issuer:         pkix.Name{CommonName: "Revoke Verify Root CA"},
+		NotBefore:      time.Now().Add(-time.Hour),
+		NotAfter:       time.Now().Add(24 * time.Hour),
+		SubjectKeyId:   leafSKID,
+		AuthorityKeyId: rootSKID,
+	}
+	derLeaf, _ := x509.CreateCertificate(rand.Reader, leafTmpl, rootTmpl, leafKp.PublicKey, rootKp.PrivateKey)
+	pemLeaf, _ := crypto.EncodeToPem(derLeaf, "CERTIFICATE")
+	dbLeafCert, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
+		SerialNumber:       fmt.Sprintf("%x", serial+1),
+		CommonName:         "Revoke Verify Leaf",
+		Type:               "LEAF",
+		KeyID:              dbLeafKey.ID,
+		IssuerSerialNumber: sql.NullString{String: serialString, Valid: true},
+		Skid:               hex.EncodeToString(leafSKID),
+		Akid:               hex.EncodeToString(rootSKID),
+		Status:             "ACTIVE",
+		NotBefore:          leafTmpl.NotBefore,
+		NotAfter:           leafTmpl.NotAfter,
+		CertificatePem:     string(pemLeaf),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed leaf cert: %v", err)
+	}
+
+	if err := testSvc.RevokeCertificate(testCtx, dbLeafCert.ID, "key-compromise"); err != nil {
+		t.Fatalf("failed to revoke leaf: %v", err)
+	}
+	if _, err := testSvc.GenerateCRL(testCtx, service.GenerateCRLRequest{
+		IssuerID: dbRootCert.ID,
+		TTL:      "24h",
+	}); err != nil {
+		t.Fatalf("failed to generate CRL: %v", err)
+	}
+	if err := (&VerifyCmd{ID: dbLeafCert.ID}).Run(testCtx, testSvc); err == nil {
+		t.Fatal("expected revoked certificate verification to fail")
 	}
 }

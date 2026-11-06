@@ -70,7 +70,7 @@ func TestInspectCmd_Run(t *testing.T) {
 		},
 		{
 			name:    "non-existent CSR returns error",
-			cmd:     InspectCmd{ID: 999999},
+			cmd:     InspectCmd{ID: "999999"},
 			wantErr: true,
 		},
 	}

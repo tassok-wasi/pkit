@@ -24,9 +24,9 @@ import (
 )
 
 type ListCmd struct {
-	Limit    int   `name:"limit" short:"l" help:"Maximum number of CRLs to display."`
-	Offset   int   `name:"offset" short:"o" help:"Number of initial rows to skip for pagination."`
-	IssuerID int64 `name:"iss" required:"" help:"Filter CRLs by the issuing certificate's database ID."`
+	Limit    int    `name:"limit" short:"l" help:"Maximum number of CRLs to display."`
+	Offset   int    `name:"offset" short:"o" help:"Number of initial rows to skip for pagination."`
+	IssuerID string `name:"iss" required:"" help:"Filter CRLs by the issuing certificate's short ID."`
 }
 
 func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -45,7 +45,7 @@ func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {
 	}
 
 	if len(crls) == 0 {
-		fmt.Printf("No CRLs found for issuer serial: %d\n", lc.IssuerID)
+		fmt.Printf("No CRLs found for issuer ID: %s\n", lc.IssuerID)
 		return nil
 	}
 
@@ -53,7 +53,7 @@ func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {
 		thisUpdateStr := crl.ThisUpdate.Format("2006-01-02 15:04:05")
 		nextUpdateStr := crl.NextUpdate.Format("2006-01-02 15:04:05")
 
-		fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
 			crl.ID,
 			crl.Name,
 			crl.CrlNumber,

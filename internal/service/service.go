@@ -42,7 +42,7 @@ func New(db *sql.DB, q sqlc.Querier) *Service {
 }
 
 // getCertificateRecord fetches a certificate row by ID.
-func (s *Service) getCertificateRecord(ctx context.Context, id int64) (sqlc.Certificate, error) {
+func (s *Service) getCertificateRecord(ctx context.Context, id string) (sqlc.Certificate, error) {
 	return s.q.GetCertificateByID(ctx, id)
 }
 
@@ -59,7 +59,7 @@ func parseKeyRecord(rec sqlc.Key) (privateKey any, publicKey any, err error) {
 // resolveIssuer loads and validates the issuing certificate and its private key.
 // It returns the parsed issuer certificate, the issuer private key, and the
 // issuer's serial number for storage on the issued certificate.
-func (s *Service) resolveIssuer(ctx context.Context, issuerID int64) (*x509.Certificate, any, string, error) {
+func (s *Service) resolveIssuer(ctx context.Context, issuerID string) (*x509.Certificate, any, string, error) {
 	issuerDBCert, err := s.q.GetCertificateByID(ctx, issuerID)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to fetch issuer Certificate from DB: %w", err)
@@ -89,7 +89,7 @@ func (s *Service) resolveIssuer(ctx context.Context, issuerID int64) (*x509.Cert
 }
 
 // storeCertificate persists a freshly issued certificate and returns the row.
-func (s *Service) storeCertificate(ctx context.Context, q sqlc.Querier, cert *x509.Certificate, certType pki.CertType, keyID int64, issuerSerial string) (sqlc.Certificate, error) {
+func (s *Service) storeCertificate(ctx context.Context, q sqlc.Querier, cert *x509.Certificate, certType pki.CertType, keyID string, issuerSerial string) (sqlc.Certificate, error) {
 	certPem := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,
@@ -102,19 +102,21 @@ func (s *Service) storeCertificate(ctx context.Context, q sqlc.Querier, cert *x5
 		akidHex = skidHex
 	}
 
-	return q.CreateCertificate(ctx, sqlc.CreateCertificateParams{
-		SerialNumber:       fmt.Sprintf("%x", cert.SerialNumber),
-		CommonName:         cert.Subject.CommonName,
-		Type:               string(certType),
-		KeyID:              keyID,
-		IssuerSerialNumber: sql.NullString{String: issuerSerial, Valid: issuerSerial != ""},
-		Skid:               skidHex,
-		Akid:               akidHex,
-		Status:             "ACTIVE",
-		IsRevoked:          sql.NullInt64{Int64: 0, Valid: true},
-		NotBefore:          cert.NotBefore,
-		NotAfter:           cert.NotAfter,
-		CertificatePem:     string(certPem),
+	return createWithIDRetry("certificates", func() (sqlc.Certificate, error) {
+		return q.CreateCertificate(ctx, sqlc.CreateCertificateParams{
+			SerialNumber:       fmt.Sprintf("%x", cert.SerialNumber),
+			CommonName:         cert.Subject.CommonName,
+			Type:               string(certType),
+			KeyID:              keyID,
+			IssuerSerialNumber: sql.NullString{String: issuerSerial, Valid: issuerSerial != ""},
+			Skid:               skidHex,
+			Akid:               akidHex,
+			Status:             "ACTIVE",
+			IsRevoked:          sql.NullInt64{Int64: 0, Valid: true},
+			NotBefore:          cert.NotBefore,
+			NotAfter:           cert.NotAfter,
+			CertificatePem:     string(certPem),
+		})
 	})
 }
 

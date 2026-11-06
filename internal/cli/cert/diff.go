@@ -24,8 +24,8 @@ import (
 )
 
 type DiffCmd struct {
-	ID1 int64 `arg:"" help:"Database ID of the first certificate to compare."`
-	ID2 int64 `arg:"" help:"Database ID of the second certificate to compare."`
+	ID1 string `arg:"" help:"short ID of the first certificate to compare."`
+	ID2 string `arg:"" help:"short ID of the second certificate to compare."`
 }
 
 func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -34,7 +34,7 @@ func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Comparing Certificate #%d [%s] vs Certificate #%d [%s]\n\n",
+	fmt.Printf("Comparing Certificate #%s [%s] vs Certificate #%s [%s]\n\n",
 		dc.ID1, result.Name1,
 		dc.ID2, result.Name2)
 
@@ -45,7 +45,7 @@ func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 
-	fmt.Fprintf(w, "FIELD\tCERT #%d\tCERT #%d\n", dc.ID1, dc.ID2)
+	fmt.Fprintf(w, "FIELD\tCERT #%s\tCERT #%s\n", dc.ID1, dc.ID2)
 	fmt.Fprintln(w, "-----\t--------\t--------")
 
 	for _, diff := range result.Diffs {

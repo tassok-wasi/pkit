@@ -109,7 +109,7 @@ func TestRotateCmd_Run(t *testing.T) {
 		{
 			name: "rotate non-existent cert ID",
 			cmd: RotateCmd{
-				ID:    999999,
+				ID:    "999999",
 				KeyID: dbKey2.ID,
 			},
 			wantErr: true,

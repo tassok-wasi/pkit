@@ -65,7 +65,7 @@ func TestVerifyCmd_Run(t *testing.T) {
 		t.Fatalf("failed to encode cert PEM: %v", err)
 	}
 
-	dbCert, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
+	if _, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
 		SerialNumber:   "1001",
 		CommonName:     "Verify Test Cert",
 		Type:           "LEAF",
@@ -76,8 +76,7 @@ func TestVerifyCmd_Run(t *testing.T) {
 		NotBefore:      template.NotBefore,
 		NotAfter:       template.NotAfter,
 		CertificatePem: string(certPem),
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("failed to insert cert into DB: %v", err)
 	}
 
@@ -87,16 +86,16 @@ func TestVerifyCmd_Run(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "verify key and certificate match",
+			name: "verify key pair matches",
 			cmd: VerifyCmd{
-				ID: int(dbCert.ID),
+				ID: dbKey.ID,
 			},
 			wantErr: false,
 		},
 		{
-			name: "verify non-existent cert ID",
+			name: "verify non-existent key ID",
 			cmd: VerifyCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},

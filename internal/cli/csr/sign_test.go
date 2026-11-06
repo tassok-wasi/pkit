@@ -126,7 +126,7 @@ func TestSignCmd_Run(t *testing.T) {
 		{
 			name: "non-existent CSR ID returns error",
 			cmd: SignCmd{
-				ID:       999999,
+				ID:       "999999",
 				IssuerID: dbIssuerCert.ID,
 				TTL:      "720h",
 			},
@@ -136,7 +136,7 @@ func TestSignCmd_Run(t *testing.T) {
 			name: "non-existent issuer ID returns error",
 			cmd: SignCmd{
 				ID:       dbCSR.ID,
-				IssuerID: 999999,
+				IssuerID: "999999",
 				TTL:      "720h",
 			},
 			wantErr: true,

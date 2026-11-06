@@ -51,14 +51,14 @@ func TestReadCmd_Run(t *testing.T) {
 		{
 			name: "read existing valid key pair",
 			cmd: ReadCmd{
-				ID: int(dbKey.ID),
+				ID: dbKey.ID,
 			},
 			wantErr: false,
 		},
 		{
 			name: "read non-existent key ID",
 			cmd: ReadCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},

@@ -108,7 +108,7 @@ func TestExportCmd_Run(t *testing.T) {
 		{
 			name: "non-existent CSR ID returns error",
 			cmd: ExportCmd{
-				ID:     999999,
+				ID:     "999999",
 				Format: "pem",
 			},
 			wantErr: true,

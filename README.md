@@ -41,7 +41,7 @@ Before creating certificates, you need a cryptographic key pair:
 pkit key generate --type ed25519 --name "Root CA Key"
 ```
 
-**Available key types:** `rsa-2048`, `rsa-4096`, `ecdsa-224`, `ecdsa-256`, `ecdsa-384`, `ecdsa-521`, `ed25519`
+**Available key types:** `rsa-2048`, `rsa-4096`, `ecdsa-256`, `ecdsa-384`, `ecdsa-521`, `ed25519`
 
 ---
 
@@ -57,27 +57,27 @@ pkit key list --limit 10 --offset 5   # Pagination
 ### Inspect a Key
 
 ```bash
-pkit key inspect 1                    # Basic info
-pkit key inspect 1 --validate         # With cryptographic validation
+pkit key inspect 3f2a9c1b7d4e          # Basic info
+pkit key inspect 3f2a9c1b7d4e --validate # With cryptographic validation
 ```
 
 ### Export a Key Pair
 
 ```bash
 # PEM format (decrypted)
-pkit key export 1 --path ./mykey --format pem
+pkit key export 3f2a9c1b7d4e --path ./mykey --format pem
 
 # DER format
-pkit key export 1 --path ./mykey --format der
+pkit key export 3f2a9c1b7d4e --path ./mykey --format der
 
 # Encrypted blob (stored encrypted as in database)
-pkit key export 1 --path ./mykey --blob
+pkit key export 3f2a9c1b7d4e --path ./mykey --blob
 ```
 
 ### Delete a Key
 
 ```bash
-pkit key delete 1
+pkit key delete 3f2a9c1b7d4e
 ```
 
 ---
@@ -85,6 +85,10 @@ pkit key delete 1
 ## Certificate Management (`pkit cert`)
 
 ### Generate Certificates
+
+`--kid` is optional. When omitted, a key pair is generated automatically and
+named after the certificate common name (for example, `example_root_ca_key`).
+Use `--key-type` to choose its algorithm (default: `ed25519`).
 
 #### Root CA (Self-Signed)
 
@@ -94,8 +98,7 @@ pkit cert generate ca \
   --org "Example Corp" \
   --c US \
   --ttl 10y \
-  --ku cert-sign,crl-sign \
-  --kid 1
+  --ku cert-sign,crl-sign
 ```
 
 **Key Usage (--ku) options:** `digital-signature`, `content-commitment`, `key-encipherment`, `data-encipherment`, `key-agreement`, `cert-sign`, `crl-sign`, `encipher-only`, `decipher-only`
@@ -110,8 +113,8 @@ pkit cert generate ica \
   --ku cert-sign,crl-sign \
   --eku server-auth,client-auth \
   --path-len 0 \
-  --iss 1 \
-  --kid 2
+  --iss 7c1d2e3f4a5b \
+  --kid 5a6b7c8d9e0f
 ```
 
 **Extended Key Usage (--eku) options:** `any`, `server-auth`, `client-auth`, `code-signing`, `email-protection`, `time-stamping`, `ocsp-signing`
@@ -128,8 +131,8 @@ pkit cert generate leaf \
   --uri https://example.com \
   --ku digital-signature,key-encipherment \
   --eku server-auth,client-auth \
-  --iss 2 \
-  --kid 3
+  --iss 1a2b3c4d5e6f \
+  --kid 5a6b7c8d9e0f
 ```
 
 ### List Certificates
@@ -143,59 +146,62 @@ pkit cert list --limit 20 --offset 10
 ### Read Raw PEM Data
 
 ```bash
-pkit cert read 1
+pkit cert read 7c1d2e3f4a5b
 ```
 
 ### Inspect Certificate Details
 
 ```bash
-pkit cert inspect 1                      # Basic inspection
-pkit cert inspect 1 --fingerprint        # Show SHA-1/SHA-256 fingerprints
-pkit cert inspect 1 --key-usages         # Show key usage flags
-pkit cert inspect 1 --extensions         # Show extended key usage
-pkit cert inspect 1 --json               # JSON output
+pkit cert inspect 7c1d2e3f4a5b            # Basic inspection
+pkit cert inspect 7c1d2e3f4a5b --fingerprint        # Show SHA-1/SHA-256 fingerprints
+pkit cert inspect 7c1d2e3f4a5b --key-usages         # Show key usage flags
+pkit cert inspect 7c1d2e3f4a5b --extensions         # Show extended key usage
+pkit cert inspect 7c1d2e3f4a5b --json               # JSON output
 ```
 
 ### Compare Two Certificates
 
 ```bash
-pkit cert diff 1 2
+pkit cert diff 7c1d2e3f4a5b 1a2b3c4d5e6f
 ```
 
 ### Validate Certificate (Sanity Checks)
 
 ```bash
-pkit cert validate 1
+pkit cert validate 7c1d2e3f4a5b
 ```
 
 ### Verify Certificate Chain
 
 ```bash
-pkit cert verify 1
+pkit cert verify 7c1d2e3f4a5b
 ```
 
 ### Revoke a Certificate
 
 ```bash
-pkit cert revoke 1 --reason key-compromise
+pkit cert revoke 7c1d2e3f4a5b --reason key-compromise
 ```
 
-**Reason options:** `unspecified`, `key-compromise`, `ca-compromise`, `affiliation-changed`, `superseded`, `cessation-of-operation`, `certificate-hold`, `remove-from-crl`, `privilege-withdrawn`, `a-a-compromise`
+**Reason options:** `unspecified`, `key-compromise`, `ca-compromise`, `affiliation-changed`, `superseded`, `cessation-of-operation`, `certificate-hold`, `privilege-withdrawn`, `a-a-compromise`
 
 ### Rotate a Certificate (Replace with New Key)
 
 ```bash
-pkit cert rotate 1 --kid 4
+pkit cert rotate 7c1d2e3f4a5b
 ```
+
+Omit `--kid` to generate the replacement key automatically (`--key-type` selects
+the algorithm); provide `--kid` to reuse an existing key pair.
 
 ### Export Certificates
 
 ```bash
 # Single certificate (PEM)
-pkit cert export leaf 1 --path ./cert --format pem
+pkit cert export leaf 7c1d2e3f4a5b --path ./cert --format pem
 
 # Single certificate (DER)
-pkit cert export leaf 1 --path ./cert --format der
+pkit cert export leaf 7c1d2e3f4a5b --path ./cert --format der
 
 # Full chain (PEM)
 pkit cert export chain 1 --path ./chain --format pem
@@ -210,7 +216,7 @@ pkit cert export bundle 1 --path ./bundle --format pkcs12 --pass-phrase "secret"
 ### Delete a Certificate
 
 ```bash
-pkit cert delete 1
+pkit cert delete 7c1d2e3f4a5b
 ```
 
 ---
@@ -225,9 +231,11 @@ pkit csr generate \
   --org "Example Corp" \
   --dns app.example.com,api.example.com \
   --ip 10.0.0.1 \
-  --type ed25519 \
-  --kid 5
+  --type ed25519
 ```
+
+`--kid` is optional; when omitted a key pair is generated using `--type` and
+named after the CSR common name.
 
 ### List CSRs
 
@@ -240,26 +248,26 @@ pkit csr list --limit 10
 ### Read Raw CSR PEM
 
 ```bash
-pkit csr read 1
+pkit csr read 2b3c4d5e6f70
 ```
 
 ### Inspect CSR Details
 
 ```bash
-pkit csr inspect 1
+pkit csr inspect 2b3c4d5e6f70
 ```
 
 ### Verify CSR (Self-Signature & Key Integrity)
 
 ```bash
-pkit csr verify 1
+pkit csr verify 2b3c4d5e6f70
 ```
 
 ### Sign a CSR
 
 ```bash
-pkit csr sign 1 \
-  --iss 2 \
+pkit csr sign 2b3c4d5e6f70 \
+  --iss 1a2b3c4d5e6f \
   --type LEAF \
   --ttl 1y \
   --ku digital-signature,key-encipherment \
@@ -270,10 +278,10 @@ pkit csr sign 1 \
 
 ```bash
 # PEM format
-pkit csr export 1 --path ./csr --format pem
+pkit csr export 2b3c4d5e6f70 --path ./csr --format pem
 
 # DER format
-pkit csr export 1 --path ./csr --format der
+pkit csr export 2b3c4d5e6f70 --path ./csr --format der
 ```
 
 ---
@@ -283,54 +291,54 @@ pkit csr export 1 --path ./csr --format der
 ### Generate a CRL
 
 ```bash
-pkit crl generate --iss 1 --ttl 168h
+pkit crl generate --iss 1a2b3c4d5e6f --ttl 168h
 ```
 
 ### List CRLs
 
 ```bash
-pkit crl list --iss 1
-pkit crl list --iss 1 --limit 10 --offset 5
+pkit crl list --iss 1a2b3c4d5e6f
+pkit crl list --iss 1a2b3c4d5e6f --limit 10 --offset 5
 ```
 
 ### Read Raw CRL PEM
 
 ```bash
-pkit crl read 1
+pkit crl read 4d5e6f708192
 ```
 
 ### Inspect CRL Details
 
 ```bash
-pkit crl inspect 1
+pkit crl inspect 4d5e6f708192
 ```
 
 ### Verify CRL Signature
 
 ```bash
-pkit crl verify 1
+pkit crl verify 4d5e6f708192
 ```
 
 ### Validate CRL (Sanity Checks)
 
 ```bash
-pkit crl validate 1
+pkit crl validate 4d5e6f708192
 ```
 
 ### Compare Two CRLs
 
 ```bash
-pkit crl diff 1 2
+pkit crl diff 4d5e6f708192 3f2a9c1b7d4e
 ```
 
 ### Export a CRL
 
 ```bash
 # PEM format
-pkit crl export 1 --path ./crl --format pem
+pkit crl export 4d5e6f708192 --path ./crl --format pem
 
 # DER format
-pkit crl export 1 --path ./crl --format der
+pkit crl export 4d5e6f708192 --path ./crl --format der
 ```
 
 ---

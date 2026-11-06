@@ -22,7 +22,7 @@ import (
 )
 
 type BundleCmd struct {
-	ID         int64  `arg:"" help:"Database ID of the leaf certificate to export as a bundle."`
+	ID         string `arg:"" help:"short ID of the leaf certificate to export as a bundle."`
 	PassPhrase string `name:"pass-phrase" help:"Passphrase to encrypt the private key (applicable only to PKCS#12 format)."`
 	Path       string `name:"path" type:"path" help:"Destination directory or file path for the exported bundle."`
 	Format     string `name:"format" short:"f" required:"" enum:"pkcs12,pem" default:"pkcs12" help:"File format for the exported bundle."`

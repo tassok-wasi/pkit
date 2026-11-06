@@ -111,7 +111,7 @@ func TestInspectCmd_Run(t *testing.T) {
 		{
 			name: "non-existent cert ID",
 			cmd: InspectCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},

@@ -74,7 +74,7 @@ func TestVerifyCmd_Run(t *testing.T) {
 		},
 		{
 			name:    "non-existent CSR ID returns error",
-			cmd:     VerifyCmd{ID: 999999},
+			cmd:     VerifyCmd{ID: "999999"},
 			wantErr: true,
 		},
 	}

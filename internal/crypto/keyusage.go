@@ -22,7 +22,7 @@ import (
 )
 
 // ParseKeyUsages maps CLI strings to x509.KeyUsage flags.
-func ParseKeyUsages(usages []string) []x509.KeyUsage {
+func ParseKeyUsages(usages []string) ([]x509.KeyUsage, error) {
 	var out []x509.KeyUsage
 	m := map[string]x509.KeyUsage{
 		"digital-signature":  x509.KeyUsageDigitalSignature,
@@ -35,16 +35,31 @@ func ParseKeyUsages(usages []string) []x509.KeyUsage {
 		"encipher-only":      x509.KeyUsageEncipherOnly,
 		"decipher-only":      x509.KeyUsageDecipherOnly,
 	}
+
+	var hasKeyAgreement, hasEncipherOnly bool
 	for _, u := range usages {
-		if ku, exists := m[strings.ToLower(strings.TrimSpace(u))]; exists {
-			out = append(out, ku)
+		name := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(u)), "_", "-")
+		ku, exists := m[name]
+		if !exists {
+			return nil, fmt.Errorf("unknown key usage: %s", u)
 		}
+		if name == "key-agreement" {
+			hasKeyAgreement = true
+		}
+		if name == "encipher-only" || name == "decipher-only" {
+			hasEncipherOnly = true
+		}
+		out = append(out, ku)
 	}
-	return out
+	if hasEncipherOnly && !hasKeyAgreement {
+		return nil, errors.New("encipher-only and decipher-only require key-agreement")
+	}
+
+	return out, nil
 }
 
 // ParseExtKeyUsages maps CLI strings to x509.ExtKeyUsage flags.
-func ParseExtKeyUsages(usages []string) []x509.ExtKeyUsage {
+func ParseExtKeyUsages(usages []string) ([]x509.ExtKeyUsage, error) {
 	var out []x509.ExtKeyUsage
 	m := map[string]x509.ExtKeyUsage{
 		"any":              x509.ExtKeyUsageAny,
@@ -56,11 +71,21 @@ func ParseExtKeyUsages(usages []string) []x509.ExtKeyUsage {
 		"ocsp-signing":     x509.ExtKeyUsageOCSPSigning,
 	}
 	for _, u := range usages {
-		if eku, exists := m[strings.ToLower(strings.TrimSpace(u))]; exists {
-			out = append(out, eku)
+		name := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(u)), "_", "-")
+		eku, exists := m[name]
+		if !exists {
+			return nil, fmt.Errorf("unknown extended key usage: %s", u)
+		}
+		out = append(out, eku)
+	}
+	if len(out) > 1 {
+		for _, eku := range out {
+			if eku == x509.ExtKeyUsageAny {
+				return nil, errors.New("extended key usage 'any' cannot be combined with other usages")
+			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 // MarshalKeyUsage converts x509.KeyUsage flags back to their CLI strings.
@@ -117,7 +142,6 @@ func ParseRevocationReason(reason string) (int, error) {
 		"superseded":             4,
 		"cessation-of-operation": 5,
 		"certificate-hold":       6,
-		"remove-from-crl":        8,
 		"privilege-withdrawn":    9,
 		"a-a-compromise":         10,
 	}
@@ -157,8 +181,6 @@ func GetSignatureAlgorithm(keyType string) (x509.SignatureAlgorithm, error) {
 	switch keyType {
 	case "rsa-2048", "rsa-4096":
 		return x509.SHA256WithRSA, nil
-	case "ecdsa-224":
-		return x509.ECDSAWithSHA1, nil // SHA1 is standard for P-224, but consider upgrading keyType if security allows
 	case "ecdsa-256":
 		return x509.ECDSAWithSHA256, nil
 	case "ecdsa-384":

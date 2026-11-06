@@ -29,30 +29,38 @@ func sortedCopy(in []string) []string {
 
 func TestParseKeyUsages(t *testing.T) {
 	tests := []struct {
-		name string
-		in   []string
-		want []x509.KeyUsage
+		name    string
+		in      []string
+		want    []x509.KeyUsage
+		wantErr bool
 	}{
-		{"empty", nil, nil},
-		{"single", []string{"digital-signature"}, []x509.KeyUsage{x509.KeyUsageDigitalSignature}},
+		{"empty", nil, nil, false},
+		{"single", []string{"digital-signature"}, []x509.KeyUsage{x509.KeyUsageDigitalSignature}, false},
 		{
 			"multiple",
 			[]string{"digital-signature", "cert-sign"},
 			[]x509.KeyUsage{x509.KeyUsageDigitalSignature, x509.KeyUsageCertSign},
+			false,
 		},
 		{
 			"case and whitespace insensitive",
 			[]string{"  DIGITAL-SIGNATURE ", "Cert-Sign"},
 			[]x509.KeyUsage{x509.KeyUsageDigitalSignature, x509.KeyUsageCertSign},
+			false,
 		},
-		{"unknown ignored", []string{"nope"}, nil},
-		{"mixed known and unknown", []string{"crl-sign", "bogus"}, []x509.KeyUsage{x509.KeyUsageCRLSign}},
+		{"unknown rejected", []string{"nope"}, nil, true},
+		{"mixed known and unknown rejected", []string{"crl-sign", "bogus"}, nil, true},
+		{"encipher-only without key-agreement rejected", []string{"encipher-only"}, nil, true},
+		{"encipher-only with key-agreement", []string{"key-agreement", "encipher-only"}, []x509.KeyUsage{x509.KeyUsageKeyAgreement, x509.KeyUsageEncipherOnly}, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ParseKeyUsages(tt.in)
-			if !reflect.DeepEqual(got, tt.want) {
+			got, err := ParseKeyUsages(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseKeyUsages(%v) error = %v, wantErr %v", tt.in, err, tt.wantErr)
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("ParseKeyUsages(%v) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
@@ -61,30 +69,37 @@ func TestParseKeyUsages(t *testing.T) {
 
 func TestParseExtKeyUsages(t *testing.T) {
 	tests := []struct {
-		name string
-		in   []string
-		want []x509.ExtKeyUsage
+		name    string
+		in      []string
+		want    []x509.ExtKeyUsage
+		wantErr bool
 	}{
-		{"empty", nil, nil},
-		{"single", []string{"server-auth"}, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}},
+		{"empty", nil, nil, false},
+		{"single", []string{"server-auth"}, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, false},
 		{
 			"multiple",
 			[]string{"server-auth", "client-auth"},
 			[]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+			false,
 		},
 		{
 			"case and whitespace insensitive",
 			[]string{" SERVER-AUTH ", "Client-Auth"},
 			[]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+			false,
 		},
-		{"unknown ignored", []string{"nope"}, nil},
-		{"any", []string{"any"}, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}},
+		{"unknown rejected", []string{"nope"}, nil, true},
+		{"any", []string{"any"}, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, false},
+		{"any combined with other rejected", []string{"any", "server-auth"}, nil, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ParseExtKeyUsages(tt.in)
-			if !reflect.DeepEqual(got, tt.want) {
+			got, err := ParseExtKeyUsages(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseExtKeyUsages(%v) error = %v, wantErr %v", tt.in, err, tt.wantErr)
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("ParseExtKeyUsages(%v) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
@@ -172,7 +187,7 @@ func TestParseRevocationReason(t *testing.T) {
 		{"superseded", "superseded", 4, false},
 		{"cessation-of-operation", "cessation-of-operation", 5, false},
 		{"certificate-hold", "certificate-hold", 6, false},
-		{"remove-from-crl", "remove-from-crl", 8, false},
+		{"remove-from-crl", "remove-from-crl", 0, true},
 		{"privilege-withdrawn", "privilege-withdrawn", 9, false},
 		{"a-a-compromise", "a-a-compromise", 10, false},
 		{"case and whitespace insensitive", "  KEY-COMPROMISE ", 1, false},
@@ -248,7 +263,7 @@ func TestGetSignatureAlgorithm(t *testing.T) {
 	}{
 		{"rsa-2048", "rsa-2048", x509.SHA256WithRSA, false},
 		{"rsa-4096", "rsa-4096", x509.SHA256WithRSA, false},
-		{"ecdsa-224", "ecdsa-224", x509.ECDSAWithSHA1, false},
+		{"ecdsa-224", "ecdsa-224", x509.UnknownSignatureAlgorithm, true},
 		{"ecdsa-256", "ecdsa-256", x509.ECDSAWithSHA256, false},
 		{"ecdsa-384", "ecdsa-384", x509.ECDSAWithSHA384, false},
 		{"ecdsa-521", "ecdsa-521", x509.ECDSAWithSHA512, false},

@@ -24,8 +24,8 @@ import (
 )
 
 type DiffCmd struct {
-	ID1 int64 `arg:"" help:"Database ID of the first CRL to compare."`
-	ID2 int64 `arg:"" help:"Database ID of the second CRL to compare."`
+	ID1 string `arg:"" help:"short ID of the first CRL to compare."`
+	ID2 string `arg:"" help:"short ID of the second CRL to compare."`
 }
 
 func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -34,7 +34,7 @@ func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Comparing CRL #%d [%s] vs CRL #%d [%s]\n\n",
+	fmt.Printf("Comparing CRL #%s [%s] vs CRL #%s [%s]\n\n",
 		dc.ID1, result.Name1,
 		dc.ID2, result.Name2)
 
@@ -45,7 +45,7 @@ func (dc *DiffCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 
-	fmt.Fprintf(w, "FIELD\tCRL #%d\tCRL #%d\n", dc.ID1, dc.ID2)
+	fmt.Fprintf(w, "FIELD\tCRL #%s\tCRL #%s\n", dc.ID1, dc.ID2)
 	fmt.Fprintln(w, "-----\t------\t------")
 
 	for _, diff := range result.Diffs {

@@ -27,6 +27,7 @@ func RunInTx(ctx context.Context, db *sql.DB, fn func(txQuerier sqlc.Querier) er
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	defer func() { _ = tx.Rollback() }()
 
 	txQueries := sqlc.New(tx)
 

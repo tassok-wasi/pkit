@@ -23,7 +23,7 @@ import (
 )
 
 type ReadCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CSR to display."`
+	ID string `arg:"" help:"short ID of the CSR to display."`
 }
 
 func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -34,7 +34,7 @@ func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	pemData := strings.TrimSpace(dbCsr.CsrPem)
 	if pemData == "" {
-		return fmt.Errorf("CSR #%d contains no PEM data", rc.ID)
+		return fmt.Errorf("CSR #%s contains no PEM data", rc.ID)
 	}
 
 	fmt.Println(pemData)

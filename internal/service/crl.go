@@ -35,7 +35,7 @@ import (
 
 // GenerateCRLRequest describes a CRL to generate for an issuer.
 type GenerateCRLRequest struct {
-	IssuerID int64
+	IssuerID string
 	TTL      string
 }
 
@@ -43,7 +43,7 @@ type GenerateCRLRequest struct {
 type ListCRLsRequest struct {
 	Limit    int
 	Offset   int
-	IssuerID int64
+	IssuerID string
 }
 
 // GenerateCRL builds and signs a new revocation list for the given issuer.
@@ -68,10 +68,6 @@ func (s *Service) GenerateCRL(ctx context.Context, req GenerateCRLRequest) (sqlc
 	if err != nil {
 		return sqlc.Crl{}, fmt.Errorf("failed to fetch Revoked Certificates: %w", err)
 	}
-	if len(revokedCerts) <= 0 {
-		return sqlc.Crl{}, fmt.Errorf("no Certificate has been Revoked from this Issuer")
-	}
-
 	var nextCRLNumber int64 = 1
 	latestCRL, err := s.q.GetLatestCRL(ctx, issuerDBCert.ID)
 	if err != nil {
@@ -84,7 +80,7 @@ func (s *Service) GenerateCRL(ctx context.Context, req GenerateCRLRequest) (sqlc
 
 	issuerKey, err := s.q.GetKeyByID(ctx, issuerDBCert.KeyID)
 	if err != nil {
-		return sqlc.Crl{}, fmt.Errorf("failed to fetch issuer private key (%d): %w", issuerDBCert.KeyID, err)
+		return sqlc.Crl{}, fmt.Errorf("failed to fetch issuer private key (%s): %w", issuerDBCert.KeyID, err)
 	}
 	rawKey, _, err := parseKeyRecord(issuerKey)
 	if err != nil {
@@ -108,7 +104,6 @@ func (s *Service) GenerateCRL(ctx context.Context, req GenerateCRLRequest) (sqlc
 	}
 
 	crlTemplate := x509.RevocationList{
-		SignatureAlgorithm:  issuerCert.SignatureAlgorithm,
 		Number:              big.NewInt(nextCRLNumber),
 		ThisUpdate:          now,
 		NextUpdate:          nextUpdate,
@@ -125,13 +120,15 @@ func (s *Service) GenerateCRL(ctx context.Context, req GenerateCRLRequest) (sqlc
 		Bytes: crlDER,
 	})
 
-	return s.q.CreateCRL(ctx, sqlc.CreateCRLParams{
-		Name:       formatCRLName(issuerCert.Subject.CommonName, now),
-		CrlNumber:  nextCRLNumber,
-		IssuerID:   issuerDBCert.ID,
-		ThisUpdate: now,
-		NextUpdate: nextUpdate,
-		CrlPem:     string(crlPEMBlock),
+	return createWithIDRetry("crls", func() (sqlc.Crl, error) {
+		return s.q.CreateCRL(ctx, sqlc.CreateCRLParams{
+			Name:       formatCRLName(issuerCert.Subject.CommonName, issuerDBCert.ID, nextCRLNumber),
+			CrlNumber:  nextCRLNumber,
+			IssuerID:   issuerDBCert.ID,
+			ThisUpdate: now,
+			NextUpdate: nextUpdate,
+			CrlPem:     string(crlPEMBlock),
+		})
 	})
 }
 
@@ -157,7 +154,7 @@ func (s *Service) ListCRLs(ctx context.Context, req ListCRLsRequest) ([]sqlc.Crl
 }
 
 // GetCRL returns the raw stored record for a CRL.
-func (s *Service) GetCRL(ctx context.Context, id int64) (sqlc.Crl, error) {
+func (s *Service) GetCRL(ctx context.Context, id string) (sqlc.Crl, error) {
 	rec, err := s.q.GetCRLByID(ctx, id)
 	if err != nil {
 		return sqlc.Crl{}, fmt.Errorf("failed to fetch CRL from DB: %w", err)
@@ -166,7 +163,7 @@ func (s *Service) GetCRL(ctx context.Context, id int64) (sqlc.Crl, error) {
 }
 
 // GetParsedCRL returns the parsed X.509 revocation list for a stored record.
-func (s *Service) GetParsedCRL(ctx context.Context, id int64) (*x509.RevocationList, error) {
+func (s *Service) GetParsedCRL(ctx context.Context, id string) (*x509.RevocationList, error) {
 	rec, err := s.q.GetCRLByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch CRL from DB: %w", err)
@@ -175,7 +172,7 @@ func (s *Service) GetParsedCRL(ctx context.Context, id int64) (*x509.RevocationL
 }
 
 // VerifyCRL verifies the cryptographic signature of a CRL against its issuer.
-func (s *Service) VerifyCRL(ctx context.Context, id int64) (*x509.RevocationList, error) {
+func (s *Service) VerifyCRL(ctx context.Context, id string) (*x509.RevocationList, error) {
 	crlRecord, err := s.q.GetCRLByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch CRL from DB: %w", err)
@@ -183,7 +180,7 @@ func (s *Service) VerifyCRL(ctx context.Context, id int64) (*x509.RevocationList
 
 	issuerDBCert, err := s.getCertificateRecord(ctx, crlRecord.IssuerID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get issuer certificate (%d) for verification: %w", crlRecord.ID, err)
+		return nil, fmt.Errorf("failed to get issuer certificate (%s) for verification: %w", crlRecord.ID, err)
 	}
 
 	parsedCRL, err := crypto.ParseCRL([]byte(crlRecord.CrlPem))
@@ -203,7 +200,7 @@ func (s *Service) VerifyCRL(ctx context.Context, id int64) (*x509.RevocationList
 }
 
 // ValidateCRL runs sanity and validity period checks on a stored CRL.
-func (s *Service) ValidateCRL(ctx context.Context, id int64) (pki.ValidationResult, error) {
+func (s *Service) ValidateCRL(ctx context.Context, id string) (pki.ValidationResult, error) {
 	crl, err := s.GetParsedCRL(ctx, id)
 	if err != nil {
 		return pki.ValidationResult{}, err
@@ -212,23 +209,23 @@ func (s *Service) ValidateCRL(ctx context.Context, id int64) (pki.ValidationResu
 }
 
 // DiffCRLs compares two stored CRLs.
-func (s *Service) DiffCRLs(ctx context.Context, id1, id2 int64) (DiffResult, error) {
+func (s *Service) DiffCRLs(ctx context.Context, id1, id2 string) (DiffResult, error) {
 	rec1, err := s.q.GetCRLByID(ctx, id1)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to fetch CRL ID %d: %w", id1, err)
+		return DiffResult{}, fmt.Errorf("failed to fetch CRL ID %s: %w", id1, err)
 	}
 	rec2, err := s.q.GetCRLByID(ctx, id2)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to fetch CRL ID %d: %w", id2, err)
+		return DiffResult{}, fmt.Errorf("failed to fetch CRL ID %s: %w", id2, err)
 	}
 
 	crl1, err := crypto.ParseCRL([]byte(rec1.CrlPem))
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to parse CRL ID %d: %w", id1, err)
+		return DiffResult{}, fmt.Errorf("failed to parse CRL ID %s: %w", id1, err)
 	}
 	crl2, err := crypto.ParseCRL([]byte(rec2.CrlPem))
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to parse CRL ID %d: %w", id2, err)
+		return DiffResult{}, fmt.Errorf("failed to parse CRL ID %s: %w", id2, err)
 	}
 
 	return DiffResult{
@@ -324,9 +321,8 @@ func mapRevokedCerts(revokedCerts []sqlc.Certificate, now time.Time) ([]pkix.Rev
 	return revokedInputs, nil
 }
 
-// formatCRLName creates an identifier string like "MyCA_20260720_045357".
-func formatCRLName(commonName string, now time.Time) string {
+// formatCRLName creates a unique identifier for an issuer and CRL number.
+func formatCRLName(commonName, issuerID string, crlNumber int64) string {
 	sanitizedName := strings.ReplaceAll(commonName, " ", "_")
-	timestamp := now.Format("20060102_150405")
-	return fmt.Sprintf("%s_%s", sanitizedName, timestamp)
+	return fmt.Sprintf("%s_%s_crl_%d", sanitizedName, issuerID, crlNumber)
 }

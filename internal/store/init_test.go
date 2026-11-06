@@ -42,6 +42,34 @@ func TestInitializeDB(t *testing.T) {
 	}
 	defer db.Close()
 
+	dirInfo, err := os.Stat(tmpDir)
+	if err != nil {
+		t.Fatalf("stat db dir: %v", err)
+	}
+	if dirInfo.Mode().Perm() != 0o700 {
+		t.Fatalf("db directory permissions = %o, want 700", dirInfo.Mode().Perm())
+	}
+	dbInfo, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("stat db file: %v", err)
+	}
+	if dbInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("db file permissions = %o, want 600", dbInfo.Mode().Perm())
+	}
+
+	conn, err := GetConnection(dbPath)
+	if err != nil {
+		t.Fatalf("GetConnection failed: %v", err)
+	}
+	defer conn.Close()
+	var version int
+	if err := conn.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatalf("read schema version: %v", err)
+	}
+	if version != SchemaVersion {
+		t.Fatalf("schema version = %d, want %d", version, SchemaVersion)
+	}
+
 	// Verify tables are present
 	tables := []string{"keys", "certificates", "csrs", "crls"}
 	for _, table := range tables {

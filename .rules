@@ -1,0 +1,27 @@
+# Codebase Rules
+
+## Navigation (always)
+- Query the codebase-memory-mcp graph FIRST: search_graph, trace_call_path, get_architecture, find_refs
+- Open files ONLY when you need exact implementation (function body, config values, string literals)
+- Never read more than 2-3 files per task; use the graph to locate, then open surgically
+
+## Writing & Editing
+- Before modifying a file, check its callers/dependents via the graph (impact check)
+- After editing, verify: run relevant tests or typecheck via terminal
+- Keep diffs minimal — change only what's needed
+
+## Terminal & Tools
+- Prefer targeted commands (grep, git diff, specific test files) over broad ones
+- Run builds/tests after changes; report failures with the exact error
+- If a command fails, diagnose before retrying — don't blindly re-run
+
+## Multi-Agent
+- When spawning sub-agents, give each one a narrow scope (one module, one bug, one feature)
+- Pass the graph query results (file paths, line numbers, call chains) as context to sub-agents — don't make them re-derive it
+- Merge results before writing files to avoid conflicts
+- If agents touch the same file, sequence them (one finishes before the other starts)
+
+## General
+- Index status: if the graph seems stale or empty, run index_repository first
+- Prefer structural answers (call chains, dependency maps) over prose descriptions
+- When uncertain about behavior, read the code — don't guess

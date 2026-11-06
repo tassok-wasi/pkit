@@ -24,14 +24,18 @@ import (
 
 // InitializeDB handles creating the folder, the file, and running the schema
 func InitializeDB(dbDir string) error {
-	if err := os.MkdirAll(dbDir, 0o755); err != nil {
+	if err := os.MkdirAll(dbDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.Chmod(dbDir, 0o700); err != nil {
+		return fmt.Errorf("failed to secure database directory: %w", err)
 	}
 
 	dbPath := filepath.Join(dbDir, "pkit.db")
 	fmt.Printf("Initializing database at: %s\n", dbPath)
 
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)", dbPath)
+	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", dbPath)
 
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -45,6 +49,9 @@ func InitializeDB(dbDir string) error {
 
 	if _, err := db.ExecContext(context.Background(), Schema); err != nil {
 		return fmt.Errorf("failed to execute schema initialization: %w", err)
+	}
+	if err := secureDBFiles(dbPath); err != nil {
+		return err
 	}
 
 	log.Println("Success: Database structures successfully populated!")

@@ -90,7 +90,7 @@ func TestReadCmd_Run(t *testing.T) {
 		{
 			name: "read non-existent certificate ID",
 			cmd: ReadCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},

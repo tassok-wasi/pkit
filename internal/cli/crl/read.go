@@ -24,7 +24,7 @@ import (
 )
 
 type ReadCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CRL to display."`
+	ID string `arg:"" help:"short ID of the CRL to display."`
 }
 
 func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -37,10 +37,10 @@ func (rc *ReadCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	fmt.Fprintln(w, "DATABASE RECORD METADATA")
 	fmt.Fprintln(w, "------------------------")
-	fmt.Fprintf(w, "ID:\t%d\n", crl.ID)
+	fmt.Fprintf(w, "ID:\t%s\n", crl.ID)
 	fmt.Fprintf(w, "Name:\t%s\n", crl.Name)
 	fmt.Fprintf(w, "CRL Number:\t%d\n", crl.CrlNumber)
-	fmt.Fprintf(w, "Issuer ID:\t%d\n", crl.ID)
+	fmt.Fprintf(w, "Issuer ID:\t%s\n", crl.IssuerID)
 	fmt.Fprintf(w, "This Update:\t%s\n", crl.ThisUpdate.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(w, "Next Update:\t%s\n", crl.NextUpdate.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(w, "Created At:\t%s\n", crl.CreatedAt.Time.Format("2006-01-02 15:04:05"))

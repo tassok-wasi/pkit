@@ -56,15 +56,15 @@ func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {
 
 	for _, csr := range summaries {
 		if lc.Status == "SIGNED" {
-			fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%d\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				csr.ID,
 				csr.CommonName,
 				csr.KeyID,
 				csr.Status,
-				csr.CertificateID.Int64,
+				csr.CertificateID.String,
 			)
 		} else {
-			fmt.Fprintf(w, "%d\t%s\t%d\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 				csr.ID,
 				csr.CommonName,
 				csr.KeyID,

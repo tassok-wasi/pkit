@@ -22,7 +22,7 @@ import (
 )
 
 type ValidateCmd struct {
-	ID int64 `arg:"" help:"Database ID of the certificate to validate."`
+	ID string `arg:"" help:"short ID of the certificate to validate."`
 }
 
 func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -31,7 +31,7 @@ func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Validating Certificate ID %d [%s]...\n\n", vc.ID, cert.Subject.CommonName)
+	fmt.Printf("Validating Certificate ID %s [%s]...\n\n", vc.ID, cert.Subject.CommonName)
 
 	result, err := svc.ValidateCertificate(ctx, vc.ID)
 	if err != nil {

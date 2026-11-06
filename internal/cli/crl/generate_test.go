@@ -19,12 +19,14 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/tassok-wasi/pkit/internal/crypto"
 	"github.com/tassok-wasi/pkit/internal/pki"
+	"github.com/tassok-wasi/pkit/internal/service"
 	"github.com/tassok-wasi/pkit/internal/store/sqlc"
 )
 
@@ -121,12 +123,12 @@ func TestGenerateCmd_Run(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "error when issuer has no revoked certificates",
+			name: "empty CRL for issuer with no revoked certificates succeeds",
 			cmd: GenerateCmd{
 				IssuerID: dbCleanIssuer.ID,
 				TTL:      "168h",
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "invalid TTL string returns error",
@@ -139,7 +141,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 		{
 			name: "non-existent issuer ID returns error",
 			cmd: GenerateCmd{
-				IssuerID: 999999,
+				IssuerID: "999999",
 				TTL:      "168h",
 			},
 			wantErr: true,
@@ -153,5 +155,105 @@ func TestGenerateCmd_Run(t *testing.T) {
 				t.Fatalf("GenerateCmd.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestGenerateCRL_CrossAlgorithmAndRepeatedName(t *testing.T) {
+	rsaKp, err := pki.GetKey(pki.RSA_2048)
+	if err != nil {
+		t.Fatalf("failed to generate RSA key: %v", err)
+	}
+	rsaPriv, rsaPub, _ := crypto.ReturnPrivPubPem(rsaKp.PrivateKey, rsaKp.PublicKey)
+	dbRsaKey, err := testQuerier.CreateKeyPair(testCtx, sqlc.CreateKeyPairParams{
+		Name:          "cross-issuer-rsa-key",
+		Algorithm:     "rsa-2048",
+		PrivateKeyPem: string(rsaPriv),
+		PublicKeyPem:  string(rsaPub),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed RSA key: %v", err)
+	}
+
+	rootSerial := time.Now().UnixNano()
+	rootSerialStr := fmt.Sprintf("%x", rootSerial)
+	rootTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(rootSerial),
+		Subject:               pkix.Name{CommonName: "Cross Algorithm Root CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(8760 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+	}
+	derRoot, _ := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, rsaKp.PublicKey, rsaKp.PrivateKey)
+	pemRoot, _ := crypto.EncodeToPem(derRoot, "CERTIFICATE")
+	if _, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
+		SerialNumber:   rootSerialStr,
+		CommonName:     "Cross Algorithm Root CA",
+		Type:           "CA",
+		KeyID:          dbRsaKey.ID,
+		Skid:           "cross-root-skid",
+		Akid:           "cross-root-skid",
+		Status:         "ACTIVE",
+		NotBefore:      rootTmpl.NotBefore,
+		NotAfter:       rootTmpl.NotAfter,
+		CertificatePem: string(pemRoot),
+	}); err != nil {
+		t.Fatalf("failed to seed root cert: %v", err)
+	}
+
+	edKp, _ := pki.GetKey(pki.ED25519)
+	edPriv, edPub, _ := crypto.ReturnPrivPubPem(edKp.PrivateKey, edKp.PublicKey)
+	dbEdKey, err := testQuerier.CreateKeyPair(testCtx, sqlc.CreateKeyPairParams{
+		Name:          "cross-issuer-ed25519-key",
+		Algorithm:     "ed25519",
+		PrivateKeyPem: string(edPriv),
+		PublicKeyPem:  string(edPub),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed Ed25519 key: %v", err)
+	}
+
+	interSerial := rootSerial + 1
+	interTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(interSerial),
+		Subject:               pkix.Name{CommonName: "Cross Algorithm Intermediate CA"},
+		Issuer:                rootTmpl.Subject,
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(4380 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		SubjectKeyId:          []byte("cross-inter-skid"),
+	}
+	derInter, err := x509.CreateCertificate(rand.Reader, interTmpl, rootTmpl, edKp.PublicKey, rsaKp.PrivateKey)
+	if err != nil {
+		t.Fatalf("failed to create intermediate: %v", err)
+	}
+	pemInter, _ := crypto.EncodeToPem(derInter, "CERTIFICATE")
+	dbInterCert, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
+		SerialNumber:       fmt.Sprintf("%x", interSerial),
+		CommonName:         "Cross Algorithm Intermediate CA",
+		Type:               "INTERMEDIATE",
+		KeyID:              dbEdKey.ID,
+		IssuerSerialNumber: sql.NullString{String: rootSerialStr, Valid: true},
+		Skid:               "cross-inter-skid",
+		Akid:               "cross-root-skid",
+		Status:             "ACTIVE",
+		NotBefore:          interTmpl.NotBefore,
+		NotAfter:           interTmpl.NotAfter,
+		CertificatePem:     string(pemInter),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed intermediate cert: %v", err)
+	}
+
+	for i := 1; i <= 2; i++ {
+		if _, err := testSvc.GenerateCRL(testCtx, service.GenerateCRLRequest{
+			IssuerID: dbInterCert.ID,
+			TTL:      "24h",
+		}); err != nil {
+			t.Fatalf("CRL generation %d failed: %v", i, err)
+		}
 	}
 }

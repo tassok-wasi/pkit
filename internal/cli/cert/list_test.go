@@ -16,9 +16,11 @@ package cert
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/tassok-wasi/pkit/internal/service"
 	"github.com/tassok-wasi/pkit/internal/store/sqlc"
 )
 
@@ -115,4 +117,46 @@ func TestListCmd_Run(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListCertificatesEffectiveExpiredStatus(t *testing.T) {
+	key, err := testQuerier.CreateKeyPair(testCtx, sqlc.CreateKeyPairParams{
+		Name:          "expired-status-key",
+		Algorithm:     "ed25519",
+		PrivateKeyPem: "dummy_priv",
+		PublicKeyPem:  "dummy_pub",
+	})
+	if err != nil {
+		t.Fatalf("failed to seed key: %v", err)
+	}
+
+	serial := fmt.Sprintf("%x", time.Now().UnixNano())
+	if _, err := testQuerier.CreateCertificate(testCtx, sqlc.CreateCertificateParams{
+		SerialNumber:   serial,
+		CommonName:     "Expired Status Cert",
+		Type:           "LEAF",
+		KeyID:          key.ID,
+		Skid:           "expired-status-skid",
+		Akid:           "expired-status-akid",
+		Status:         "ACTIVE",
+		NotBefore:      time.Now().Add(-48 * time.Hour),
+		NotAfter:       time.Now().Add(-24 * time.Hour),
+		CertificatePem: "dummy_pem",
+	}); err != nil {
+		t.Fatalf("failed to seed expired certificate: %v", err)
+	}
+
+	certs, err := testSvc.ListCertificates(testCtx, service.ListCertificatesRequest{Status: "EXPIRED"})
+	if err != nil {
+		t.Fatalf("ListCertificates failed: %v", err)
+	}
+	for _, cert := range certs {
+		if cert.SerialNumber == serial {
+			if cert.Status != "EXPIRED" {
+				t.Fatalf("status = %s, want EXPIRED", cert.Status)
+			}
+			return
+		}
+	}
+	t.Fatal("expired certificate not found in EXPIRED listing")
 }

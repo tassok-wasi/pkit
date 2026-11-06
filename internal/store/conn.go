@@ -22,13 +22,16 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// SchemaVersion is the supported on-disk schema version.
+const SchemaVersion = 1
+
 // GetConnection opens a database connection
 func GetConnection(dbPath string) (*sql.DB, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("database file does not exist at %s. Run 'pkit init' first", dbPath)
 	}
 
-	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)", dbPath)
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", dbPath)
 
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -38,6 +41,15 @@ func GetConnection(dbPath string) (*sql.DB, error) {
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("cannot connect to database: %w", err)
+	}
+
+	if err := checkSchemaVersion(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := secureDBFiles(dbPath); err != nil {
+		db.Close()
+		return nil, err
 	}
 
 	// Connection Pool Settings optimized for sequential CLI usage with transactions
@@ -51,4 +63,26 @@ func GetConnection(dbPath string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func checkSchemaVersion(db *sql.DB) error {
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return fmt.Errorf("failed to read database schema version: %w", err)
+	}
+	if version != SchemaVersion {
+		return fmt.Errorf("unsupported database schema version %d (expected %d); recreate the database with 'pkit init'", version, SchemaVersion)
+	}
+	return nil
+}
+
+func secureDBFiles(dbPath string) error {
+	for _, path := range []string{dbPath, dbPath + "-wal", dbPath + "-shm"} {
+		if _, err := os.Stat(path); err == nil {
+			if err := os.Chmod(path, 0o600); err != nil {
+				return fmt.Errorf("failed to secure database file %s: %w", path, err)
+			}
+		}
+	}
+	return nil
 }

@@ -103,7 +103,7 @@ func TestListCmd_Run(t *testing.T) {
 		},
 		{
 			name:    "list CRLs for issuer with no entries returns no error",
-			cmd:     ListCmd{IssuerID: 999999},
+			cmd:     ListCmd{IssuerID: "999999"},
 			wantErr: false,
 		},
 	}

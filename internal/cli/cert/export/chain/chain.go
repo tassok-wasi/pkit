@@ -22,7 +22,7 @@ import (
 )
 
 type ChainCmd struct {
-	ID     int64  `arg:"" help:"Database ID of the leaf certificate whose certificate chain to export."`
+	ID     string `arg:"" help:"short ID of the leaf certificate whose certificate chain to export."`
 	Path   string `name:"path" type:"path" help:"Destination directory or file path for the exported chain."`
 	Format string `name:"format" short:"f" required:"" enum:"pem,pkcs7" default:"pem" help:"File format for the exported chain."`
 }

@@ -84,7 +84,7 @@ func TestDeleteCmd_Run(t *testing.T) {
 		{
 			name: "delete non-existent key returns error",
 			cmd: DeleteCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},
@@ -100,7 +100,7 @@ func TestDeleteCmd_Run(t *testing.T) {
 			if tt.verifyGone {
 				_, err := testQuerier.GetKeyByID(testCtx, tt.cmd.ID)
 				if err == nil {
-					t.Fatalf("expected key %d to be deleted, but it still exists", tt.cmd.ID)
+					t.Fatalf("expected key %s to be deleted, but it still exists", tt.cmd.ID)
 				}
 			}
 		})

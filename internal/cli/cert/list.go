@@ -55,7 +55,7 @@ func (lc *ListCmd) Run(ctx context.Context, svc *service.Service) error {
 		if !cert.CreatedAt.IsZero() {
 			createdAt = cert.CreatedAt.Format("2006-01-02 15:04:05")
 		}
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			cert.ID,
 			cert.SerialNumber,
 			cert.CommonName,

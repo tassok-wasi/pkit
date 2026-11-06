@@ -22,15 +22,15 @@ import (
 )
 
 type VerifyCmd struct {
-	ID int `arg:"" help:"Database ID of the key pair to verify against its certificate."`
+	ID string `arg:"" help:"short ID of the key pair to verify."`
 }
 
 func (vc *VerifyCmd) Run(ctx context.Context, svc *service.Service) error {
-	if err := svc.VerifyKey(ctx, int64(vc.ID)); err != nil {
+	if err := svc.VerifyKey(ctx, vc.ID); err != nil {
 		return err
 	}
 
-	log.Println("Success: The private key perfectly matches the certificate public key.")
+	log.Println("Success: The stored private key matches the stored public key.")
 
 	return nil
 }

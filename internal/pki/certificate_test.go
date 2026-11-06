@@ -15,6 +15,7 @@
 package pki
 
 import (
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"testing"
 	"time"
@@ -106,7 +107,7 @@ func TestIssueCertificate(t *testing.T) {
 					SANs: SANs{
 						DNSNames: []string{"test.example.com", "www.test.example.com"},
 					},
-					TTLInHours: 8760,
+					TTLInHours: 2190,
 					KeyPair:    mustGenerateKeyPair(t, RSA_2048),
 					ParentCert: intCert,
 					ParentKey:  intKeyPair.PrivateKey,
@@ -184,5 +185,75 @@ func TestGetBaseTemplate(t *testing.T) {
 	}
 	if tmpl.IsCA != true {
 		t.Fatal("isCA should be true")
+	}
+}
+
+func TestIssueCertificateInvariants(t *testing.T) {
+	rootKP := mustGenerateKeyPair(t, RSA_2048)
+	root, err := IssueCertificate(CertOptions{
+		Type:       TypeRootCA,
+		Subject:    pkix.Name{CommonName: "Invariant Root CA"},
+		TTLInHours: 8760,
+		KeyPair:    rootKP,
+		Usages: &KeyUsageConfig{
+			KeyUsages: []x509.KeyUsage{x509.KeyUsageDigitalSignature},
+		},
+	})
+	if err != nil {
+		t.Fatalf("root CA issuance failed: %v", err)
+	}
+	if root.KeyUsage&x509.KeyUsageCertSign == 0 {
+		t.Fatal("CA certificate must always include cert-sign")
+	}
+
+	leafKP := mustGenerateKeyPair(t, ED25519)
+	if _, err := IssueCertificate(CertOptions{
+		Type:       TypeLeaf,
+		Subject:    pkix.Name{CommonName: "leaf.example.com"},
+		TTLInHours: 24,
+		KeyPair:    leafKP,
+		ParentCert: root,
+		ParentKey:  rootKP.PrivateKey,
+		Usages: &KeyUsageConfig{
+			KeyUsages: []x509.KeyUsage{x509.KeyUsageCertSign},
+		},
+	}); err == nil {
+		t.Fatal("expected leaf cert-sign usage to be rejected")
+	}
+
+	negative := -1
+	if _, err := IssueCertificate(CertOptions{
+		Type:       TypeIntermediate,
+		Subject:    pkix.Name{CommonName: "Negative Path CA"},
+		TTLInHours: 24,
+		KeyPair:    mustGenerateKeyPair(t, ED25519),
+		ParentCert: root,
+		ParentKey:  rootKP.PrivateKey,
+		PathLen:    &negative,
+	}); err == nil {
+		t.Fatal("expected negative path length to be rejected")
+	}
+
+	if _, err := IssueCertificate(CertOptions{
+		Type:       TypeLeaf,
+		Subject:    pkix.Name{CommonName: "too-long.example.com"},
+		TTLInHours: 87600,
+		KeyPair:    mustGenerateKeyPair(t, ED25519),
+		ParentCert: root,
+		ParentKey:  rootKP.PrivateKey,
+	}); err == nil {
+		t.Fatal("expected child validity beyond issuer expiry to be rejected")
+	}
+
+	wrongKey := mustGenerateKeyPair(t, ED25519)
+	if _, err := IssueCertificate(CertOptions{
+		Type:       TypeLeaf,
+		Subject:    pkix.Name{CommonName: "wrong-key.example.com"},
+		TTLInHours: 24,
+		KeyPair:    leafKP,
+		ParentCert: root,
+		ParentKey:  wrongKey.PrivateKey,
+	}); err == nil {
+		t.Fatal("expected mismatched issuer private key to be rejected")
 	}
 }

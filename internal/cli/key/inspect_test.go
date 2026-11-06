@@ -25,7 +25,7 @@ import (
 func TestInspectCmd_Run(t *testing.T) {
 	// Seed keys for each supported type
 	algos := []string{"ed25519", "ecdsa-256", "rsa-2048"}
-	keyIDs := make(map[string]int64)
+	keyIDs := make(map[string]string)
 
 	for _, algo := range algos {
 		kp, err := pki.GetKey(pki.KeyType(algo))
@@ -57,7 +57,7 @@ func TestInspectCmd_Run(t *testing.T) {
 		{
 			name: "inspect Ed25519 key without validation",
 			cmd: InspectCmd{
-				ID:       int(keyIDs["ed25519"]),
+				ID:       keyIDs["ed25519"],
 				Validate: false,
 			},
 			wantErr: false,
@@ -65,7 +65,7 @@ func TestInspectCmd_Run(t *testing.T) {
 		{
 			name: "inspect ECDSA key with validation",
 			cmd: InspectCmd{
-				ID:       int(keyIDs["ecdsa-256"]),
+				ID:       keyIDs["ecdsa-256"],
 				Validate: true,
 			},
 			wantErr: false,
@@ -73,7 +73,7 @@ func TestInspectCmd_Run(t *testing.T) {
 		{
 			name: "inspect RSA key with validation",
 			cmd: InspectCmd{
-				ID:       int(keyIDs["rsa-2048"]),
+				ID:       keyIDs["rsa-2048"],
 				Validate: true,
 			},
 			wantErr: false,
@@ -81,7 +81,7 @@ func TestInspectCmd_Run(t *testing.T) {
 		{
 			name: "non-existent key ID",
 			cmd: InspectCmd{
-				ID:       999999,
+				ID:       "999999",
 				Validate: false,
 			},
 			wantErr: true,

@@ -150,7 +150,7 @@ func TestChainCmd_Run(t *testing.T) {
 		{
 			name: "non-existent cert ID returns error",
 			cmd: ChainCmd{
-				ID:     999999,
+				ID:     "999999",
 				Format: "pem",
 			},
 			wantErr: true,

@@ -18,6 +18,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"database/sql"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -88,7 +90,7 @@ func TestIntermediateCmd_Run(t *testing.T) {
 				IssuerID:   dbRootCert.ID,
 				TTL:        "4380h",
 				KeyUsages:  []string{"cert_sign", "crl_sign"},
-				PathLen:    1,
+				PathLen:    intPtr(1),
 			},
 			wantErr: false,
 		},
@@ -97,7 +99,7 @@ func TestIntermediateCmd_Run(t *testing.T) {
 			cmd: ICACmd{
 				CommonName: "Gen Intermediate CA Bad Issuer",
 				KeyID:      dbInterKey.ID,
-				IssuerID:   999999,
+				IssuerID:   "999999",
 				TTL:        "4380h",
 			},
 			wantErr: true,
@@ -106,7 +108,7 @@ func TestIntermediateCmd_Run(t *testing.T) {
 			name: "non-existent key ID returns error",
 			cmd: ICACmd{
 				CommonName: "Gen Intermediate CA Bad Key",
-				KeyID:      999999,
+				KeyID:      "999999",
 				IssuerID:   dbRootCert.ID,
 				TTL:        "4380h",
 			},
@@ -131,5 +133,24 @@ func TestIntermediateCmd_Run(t *testing.T) {
 				t.Fatalf("IntermediateCmd.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func intPtr(v int) *int { return &v }
+
+func TestICACmd_AutoKeyCleanupOnFailure(t *testing.T) {
+	cmd := ICACmd{
+		CommonName: "Orphan Test CA",
+		TTL:        "24h",
+		IssuerID:   "999999",
+		KeyType:    "ed25519",
+	}
+	if err := cmd.Run(testCtx, testSvc); err == nil {
+		t.Fatal("expected issuance to fail")
+	}
+
+	_, err := testQuerier.GetKeyByName(testCtx, "orphan_test_ca_key")
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("auto-generated key was not cleaned up: %v", err)
 	}
 }

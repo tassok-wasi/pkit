@@ -59,7 +59,7 @@ func TestValidateCmd_Run(t *testing.T) {
 	dbValidCRL, _ := testQuerier.CreateCRL(ctx, sqlc.CreateCRLParams{
 		Name:       "Valid_CRL",
 		CrlNumber:  1,
-		IssuerID:   1,
+		IssuerID:   "1",
 		ThisUpdate: validTmpl.ThisUpdate,
 		NextUpdate: validTmpl.NextUpdate,
 		CrlPem:     string(validPEM),
@@ -77,7 +77,7 @@ func TestValidateCmd_Run(t *testing.T) {
 	dbExpiredCRL, _ := testQuerier.CreateCRL(ctx, sqlc.CreateCRLParams{
 		Name:       "Expired_CRL",
 		CrlNumber:  2,
-		IssuerID:   1,
+		IssuerID:   "1",
 		ThisUpdate: expiredTmpl.ThisUpdate,
 		NextUpdate: expiredTmpl.NextUpdate,
 		CrlPem:     string(expiredPEM),
@@ -100,7 +100,7 @@ func TestValidateCmd_Run(t *testing.T) {
 		},
 		{
 			name:    "non-existent CRL returns error",
-			cmd:     ValidateCmd{ID: 999999},
+			cmd:     ValidateCmd{ID: "999999"},
 			wantErr: true,
 		},
 	}

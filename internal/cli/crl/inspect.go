@@ -24,7 +24,7 @@ import (
 )
 
 type InspectCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CRL to inspect."`
+	ID string `arg:"" help:"short ID of the CRL to inspect."`
 }
 
 func (ic *InspectCmd) Run(ctx context.Context, svc *service.Service) error {

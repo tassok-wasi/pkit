@@ -22,7 +22,7 @@ import (
 )
 
 type ValidateCmd struct {
-	ID int64 `arg:"" help:"Database ID of the CSR to validate."`
+	ID string `arg:"" help:"short ID of the CSR to validate."`
 }
 
 func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -36,7 +36,7 @@ func (vc *ValidateCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Validating CSR ID %d [%s]...\n\n", vc.ID, csr.Subject.CommonName)
+	fmt.Printf("Validating CSR ID %s [%s]...\n\n", vc.ID, csr.Subject.CommonName)
 
 	// Output Warnings
 	if len(result.Warnings) > 0 {

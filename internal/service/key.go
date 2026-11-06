@@ -16,9 +16,8 @@ package service
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
+	stdcrypto "crypto"
+	"database/sql"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -46,7 +45,7 @@ type ListKeysRequest struct {
 
 // KeySummary is a normalized row for listing key pairs.
 type KeySummary struct {
-	ID        int64
+	ID        string
 	Name      string
 	Algorithm string
 	CreatedAt time.Time
@@ -54,10 +53,25 @@ type KeySummary struct {
 
 // ExportKeyRequest describes a key pair export to disk.
 type ExportKeyRequest struct {
-	ID     int64
+	ID     string
 	Path   string
 	Format string
 	Blob   bool
+}
+
+// createWithIDRetry retries inserts when the generated short ID collides.
+func createWithIDRetry[T any](table string, fn func() (T, error)) (T, error) {
+	var zero T
+	for attempt := 0; attempt < 5; attempt++ {
+		value, err := fn()
+		if err == nil {
+			return value, nil
+		}
+		if !strings.Contains(err.Error(), "UNIQUE constraint failed: "+table+".id") {
+			return zero, err
+		}
+	}
+	return zero, fmt.Errorf("failed to generate a unique ID for %s after retries", table)
 }
 
 // GenerateKey creates a new key pair and persists it.
@@ -72,12 +86,65 @@ func (s *Service) GenerateKey(ctx context.Context, req GenerateKeyRequest) (sqlc
 		return sqlc.Key{}, err
 	}
 
-	return s.q.CreateKeyPair(ctx, sqlc.CreateKeyPairParams{
-		Name:          req.Name,
-		Algorithm:     req.KeyType,
-		PrivateKeyPem: string(privBlobPem),
-		PublicKeyPem:  string(pubPem),
+	return createWithIDRetry("keys", func() (sqlc.Key, error) {
+		return s.q.CreateKeyPair(ctx, sqlc.CreateKeyPairParams{
+			Name:          req.Name,
+			Algorithm:     req.KeyType,
+			PrivateKeyPem: string(privBlobPem),
+			PublicKeyPem:  string(pubPem),
+		})
 	})
+}
+
+// resolveKey returns the requested key pair, or generates a new one named
+// after the certificate when no key ID was supplied.
+func (s *Service) resolveKey(ctx context.Context, keyID, commonName string, certType pki.CertType, keyType string) (sqlc.Key, bool, error) {
+	if keyID != "" {
+		key, err := s.q.GetKeyByID(ctx, keyID)
+		return key, false, err
+	}
+	if keyType == "" {
+		keyType = string(pki.ED25519)
+	}
+
+	key, err := s.generateAutoKey(ctx, commonName, certType, keyType)
+	if err != nil {
+		return sqlc.Key{}, false, fmt.Errorf("failed to generate key pair for certificate: %w", err)
+	}
+	return key, true, nil
+}
+
+// generateAutoKey creates a key pair with a name derived from the certificate
+// common name, adding a numeric suffix if that name is already taken.
+func (s *Service) generateAutoKey(ctx context.Context, commonName string, certType pki.CertType, keyType string) (sqlc.Key, error) {
+	base := autoKeyName(commonName, certType)
+	name := base
+
+	for suffix := 2; suffix <= 1000; suffix++ {
+		_, err := s.q.GetKeyByName(ctx, name)
+		if errors.Is(err, sql.ErrNoRows) {
+			return s.GenerateKey(ctx, GenerateKeyRequest{KeyType: keyType, Name: name})
+		}
+		if err != nil {
+			return sqlc.Key{}, fmt.Errorf("failed to check key name %q: %w", name, err)
+		}
+		name = fmt.Sprintf("%s_%d", base, suffix)
+	}
+
+	return sqlc.Key{}, fmt.Errorf("failed to find an available key name based on %q", base)
+}
+
+// autoKeyName builds a readable key name from a certificate common name.
+func autoKeyName(commonName string, certType pki.CertType) string {
+	base := crypto.ToSnakeCase(crypto.SanitizeFilename(commonName, ""))
+	base = strings.ReplaceAll(base, ".", "_")
+	base = strings.Trim(base, "_-")
+
+	if base == "" {
+		base = strings.ToLower(string(certType))
+	}
+
+	return base + "_key"
 }
 
 // ListKeys returns key pairs matching the given pagination.
@@ -109,7 +176,7 @@ func (s *Service) ListKeys(ctx context.Context, req ListKeysRequest) ([]KeySumma
 }
 
 // GetKey returns the raw stored record for a key pair.
-func (s *Service) GetKey(ctx context.Context, id int64) (sqlc.Key, error) {
+func (s *Service) GetKey(ctx context.Context, id string) (sqlc.Key, error) {
 	rec, err := s.q.GetKeyByID(ctx, id)
 	if err != nil {
 		return sqlc.Key{}, fmt.Errorf("failed to fetch key from DB: %w", err)
@@ -118,7 +185,7 @@ func (s *Service) GetKey(ctx context.Context, id int64) (sqlc.Key, error) {
 }
 
 // GetParsedKey returns the decrypted private key and public key for a record.
-func (s *Service) GetParsedKey(ctx context.Context, id int64) (privateKey any, publicKey any, err error) {
+func (s *Service) GetParsedKey(ctx context.Context, id string) (privateKey any, publicKey any, err error) {
 	rec, err := s.q.GetKeyByID(ctx, id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch key from DB: %w", err)
@@ -127,13 +194,13 @@ func (s *Service) GetParsedKey(ctx context.Context, id int64) (privateKey any, p
 }
 
 // ReadKey returns the decrypted private key and public key as PEM strings.
-func (s *Service) ReadKey(ctx context.Context, id int64) (privateKeyPEM, publicKeyPEM string, err error) {
+func (s *Service) ReadKey(ctx context.Context, id string) (privateKeyPEM, publicKeyPEM string, err error) {
 	rec, err := s.q.GetKeyByID(ctx, id)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
 
-	decrypted, err := crypto.DecryptPrivateKey([]byte(rec.PrivateKeyPem))
+	decrypted, err := crypto.DecryptPrivateKey([]byte(rec.PrivateKeyPem), []byte(rec.PublicKeyPem))
 	if err != nil {
 		return "", "", fmt.Errorf("failed to decrypt private key: %w", err)
 	}
@@ -146,64 +213,31 @@ func (s *Service) ReadKey(ctx context.Context, id int64) (privateKeyPEM, publicK
 	return privateKeyPEM, rec.PublicKeyPem, nil
 }
 
-// VerifyKey checks that a certificate's public key matches its stored private key.
-func (s *Service) VerifyKey(ctx context.Context, id int64) error {
-	dbCert, err := s.getCertificateRecord(ctx, id)
+// VerifyKey checks that a stored key pair's private and public halves match.
+func (s *Service) VerifyKey(ctx context.Context, id string) error {
+	key, err := s.q.GetKeyByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to fetch Certificate from DB: %w", err)
-	}
-	cert, err := parseCertificateRecord(dbCert)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
 
-	key, err := s.q.GetKeyByID(ctx, dbCert.KeyID)
-	if err != nil {
-		return fmt.Errorf("failed to get key: %w", err)
-	}
-	privateKey, _, err := parseKeyRecord(key)
+	privateKey, publicKey, err := parseKeyRecord(key)
 	if err != nil {
 		return err
 	}
 
-	switch pub := cert.PublicKey.(type) {
-	case *rsa.PublicKey:
-		priv, ok := privateKey.(*rsa.PrivateKey)
-		if !ok {
-			return errors.New("key mismatch: certificate holds an RSA public key, but the private key is not RSA")
-		}
-		if !pub.Equal(&priv.PublicKey) {
-			return errors.New("cryptographic mismatch: RSA private key does not belong to this certificate")
-		}
-
-	case *ecdsa.PublicKey:
-		priv, ok := privateKey.(*ecdsa.PrivateKey)
-		if !ok {
-			return errors.New("key mismatch: certificate holds an ECDSA public key, but the private key is not ECDSA")
-		}
-		if !pub.Equal(&priv.PublicKey) {
-			return errors.New("cryptographic mismatch: ECDSA private key does not belong to this certificate")
-		}
-
-	case ed25519.PublicKey:
-		priv, ok := privateKey.(ed25519.PrivateKey)
-		if !ok {
-			return errors.New("key mismatch: certificate holds an Ed25519 public key, but the private key is not Ed25519")
-		}
-		privPub, ok := priv.Public().(ed25519.PublicKey)
-		if !ok || !pub.Equal(privPub) {
-			return errors.New("cryptographic mismatch: Ed25519 private key does not belong to this certificate")
-		}
-
-	default:
-		return fmt.Errorf("unsupported public key algorithm type: %T", cert.PublicKey)
+	signer, ok := privateKey.(stdcrypto.Signer)
+	if !ok {
+		return fmt.Errorf("parsed private key does not implement crypto.Signer")
+	}
+	if !pubKeysEqual(signer.Public(), publicKey) {
+		return errors.New("cryptographic mismatch: stored private key does not match stored public key")
 	}
 
 	return nil
 }
 
 // RenameKey updates the friendly name of a key pair.
-func (s *Service) RenameKey(ctx context.Context, id int64, name string) error {
+func (s *Service) RenameKey(ctx context.Context, id string, name string) error {
 	newName := strings.TrimSpace(name)
 	if newName == "" {
 		return fmt.Errorf("new key name cannot be empty")
@@ -221,7 +255,7 @@ func (s *Service) RenameKey(ctx context.Context, id int64, name string) error {
 }
 
 // DeleteKey removes a key pair from the database.
-func (s *Service) DeleteKey(ctx context.Context, id int64) error {
+func (s *Service) DeleteKey(ctx context.Context, id string) error {
 	if _, err := s.q.GetKeyByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to fetch key from DB: %w", err)
 	}
@@ -259,7 +293,7 @@ func (s *Service) ExportKey(ctx context.Context, req ExportKeyRequest) (string, 
 
 	if format == "pem" {
 		if !req.Blob {
-			decryptedPrivKey, err := crypto.DecryptPrivateKey([]byte(key.PrivateKeyPem))
+			decryptedPrivKey, err := crypto.DecryptPrivateKey([]byte(key.PrivateKeyPem), []byte(key.PublicKeyPem))
 			if err != nil {
 				return "", "", fmt.Errorf("failed to decrypt private key: %w", err)
 			}
@@ -273,7 +307,7 @@ func (s *Service) ExportKey(ctx context.Context, req ExportKeyRequest) (string, 
 		pubBytes = []byte(key.PublicKeyPem)
 	} else {
 		if !req.Blob {
-			decryptedPrivKey, err := crypto.DecryptPrivateKey([]byte(key.PrivateKeyPem))
+			decryptedPrivKey, err := crypto.DecryptPrivateKey([]byte(key.PrivateKeyPem), []byte(key.PublicKeyPem))
 			if err != nil {
 				return "", "", fmt.Errorf("failed to decrypt private key: %w", err)
 			}

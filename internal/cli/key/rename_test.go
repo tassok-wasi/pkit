@@ -75,7 +75,7 @@ func TestRenameCmd_Run(t *testing.T) {
 		{
 			name: "rename non-existent key returns error",
 			cmd: RenameCmd{
-				ID:   999999,
+				ID:   "999999",
 				Name: "does-not-matter",
 			},
 			wantErr: true,

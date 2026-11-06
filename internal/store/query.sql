@@ -43,34 +43,54 @@ INSERT INTO certificates (
 RETURNING *;
 
 -- name: ListCertificates :many
-SELECT id, serial_number, common_name, type, status, not_after, is_revoked, skid, akid, created_at
+SELECT id, serial_number, common_name, type,
+    CASE
+        WHEN status = 'REVOKED' OR is_revoked = 1 THEN 'REVOKED'
+        WHEN not_after < CURRENT_TIMESTAMP THEN 'EXPIRED'
+        ELSE 'ACTIVE'
+    END AS status,
+    not_after, is_revoked, skid, akid, created_at
 FROM certificates
 WHERE
-    (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
+    (CAST(sqlc.narg('status') AS TEXT) IS NULL OR (CASE
+        WHEN status = 'REVOKED' OR is_revoked = 1 THEN 'REVOKED'
+        WHEN not_after < CURRENT_TIMESTAMP THEN 'EXPIRED'
+        ELSE 'ACTIVE'
+    END) = CAST(sqlc.narg('status') AS TEXT))
     AND (CAST(sqlc.narg('type') AS TEXT) IS NULL OR type = CAST(sqlc.narg('type') AS TEXT))
-ORDER BY id ASC
+ORDER BY rowid ASC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
 -- name: ListAllCertificates :many
-SELECT id, serial_number, common_name, type, status, not_after, is_revoked, skid, akid, created_at
+SELECT id, serial_number, common_name, type,
+    CASE
+        WHEN status = 'REVOKED' OR is_revoked = 1 THEN 'REVOKED'
+        WHEN not_after < CURRENT_TIMESTAMP THEN 'EXPIRED'
+        ELSE 'ACTIVE'
+    END AS status,
+    not_after, is_revoked, skid, akid, created_at
 FROM certificates
 WHERE
-    (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
+    (CAST(sqlc.narg('status') AS TEXT) IS NULL OR (CASE
+        WHEN status = 'REVOKED' OR is_revoked = 1 THEN 'REVOKED'
+        WHEN not_after < CURRENT_TIMESTAMP THEN 'EXPIRED'
+        ELSE 'ACTIVE'
+    END) = CAST(sqlc.narg('status') AS TEXT))
     AND (CAST(sqlc.narg('type') AS TEXT) IS NULL OR type = CAST(sqlc.narg('type') AS TEXT))
-ORDER BY id ASC;
+ORDER BY rowid ASC;
 
 -- name: ListKeys :many
 SELECT id, name, algorithm, created_at
 FROM keys
-ORDER BY id ASC
+ORDER BY rowid ASC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
 -- name: ListAllKeys :many
 SELECT id, name, algorithm, created_at
 FROM keys
-ORDER BY id ASC;
+ORDER BY rowid ASC;
 
 -- name: GetKeyByID :one
 SELECT * FROM keys WHERE id = sqlc.arg('id');
@@ -94,6 +114,9 @@ SELECT * FROM certificates WHERE id = sqlc.arg('id');
 -- name: DeleteCertificateByID :exec
 DELETE FROM certificates
 WHERE id = sqlc.arg('id');
+
+-- name: CountCertificatesByIssuerSerialNumber :one
+SELECT COUNT(*) FROM certificates WHERE issuer_serial_number = sqlc.arg('issuer_serial_number');
 
 -- name: GetCertificateBySN :one
 SELECT * FROM certificates WHERE serial_number = sqlc.arg('serial_number');
@@ -142,7 +165,7 @@ SELECT * FROM certificates
 WHERE
     issuer_serial_number = sqlc.arg('issuer_serial_number')
     AND is_revoked = 1
-ORDER BY id ASC
+ORDER BY rowid ASC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
@@ -151,7 +174,7 @@ SELECT * FROM certificates
 WHERE
     issuer_serial_number = sqlc.arg('issuer_serial_number')
     AND is_revoked = 1
-ORDER BY id ASC;
+ORDER BY rowid ASC;
 
 -- name: CreateCRL :one
 INSERT INTO crls (
@@ -181,20 +204,20 @@ SELECT
     crl_pem
 FROM crls
 WHERE issuer_id = sqlc.arg('issuer_id')
-ORDER BY created_at DESC
+ORDER BY crl_number DESC
 LIMIT 1;
 
 -- name: ListCRLs :many
 SELECT * FROM crls
 WHERE issuer_id = sqlc.arg('issuer_id')
-ORDER BY id ASC
+ORDER BY rowid ASC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
 -- name: ListAllCRLs :many
 SELECT * FROM crls
 WHERE issuer_id = sqlc.arg('issuer_id')
-ORDER BY id ASC;
+ORDER BY rowid ASC;
 
 
 -- name: GetCRLByID :one
@@ -220,7 +243,7 @@ RETURNING *;
 SELECT id, common_name, key_id, status, csr_pem, certificate_id
 FROM csrs
 WHERE (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
-ORDER BY id ASC
+ORDER BY rowid ASC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
 
@@ -228,12 +251,12 @@ OFFSET sqlc.arg('offset');
 SELECT id, common_name, key_id, status, csr_pem, certificate_id
 FROM csrs
 WHERE (CAST(sqlc.narg('status') AS TEXT) IS NULL OR status = CAST(sqlc.narg('status') AS TEXT))
-ORDER BY id ASC;
+ORDER BY rowid ASC;
 
--- name: UpdateCSRStatus :exec
+-- name: UpdateCSRStatus :execrows
 UPDATE csrs
 SET status = sqlc.arg('status'), certificate_id = sqlc.arg('certificate_id')
-WHERE common_name = sqlc.arg('common_name');
+WHERE id = sqlc.arg('id') AND status = 'PENDING';
 
 -- name: GetCSRByID :one
 SELECT * FROM csrs WHERE id = sqlc.arg('id');

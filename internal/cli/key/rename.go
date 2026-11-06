@@ -23,7 +23,7 @@ import (
 )
 
 type RenameCmd struct {
-	ID   int64  `arg:"" help:"Database ID of the key pair to rename."`
+	ID   string `arg:"" help:"short ID of the key pair to rename."`
 	Name string `name:"name" short:"n" required:"" help:"New friendly name for the key pair."`
 }
 
@@ -32,6 +32,6 @@ func (rc *RenameCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Successfully renamed key %d to: %s\n", rc.ID, strings.TrimSpace(rc.Name))
+	fmt.Printf("Successfully renamed key %s to: %s\n", rc.ID, strings.TrimSpace(rc.Name))
 	return nil
 }

@@ -106,7 +106,7 @@ func TestReturnPrivPubPemRoundTrip(t *testing.T) {
 		t.Fatalf("ReturnPrivPubPem error: %v", err)
 	}
 
-	decrypted, err := DecryptPrivateKey(privPem)
+	decrypted, err := DecryptPrivateKey(privPem, pubPem)
 	if err != nil {
 		t.Fatalf("DecryptPrivateKey error: %v", err)
 	}
@@ -147,17 +147,12 @@ func TestEncryptDecryptPrivateKeyRoundTrip(t *testing.T) {
 		t.Fatalf("failed to generate key: %v", err)
 	}
 
-	encrypted, err := EncryptPrivateKey(priv)
+	encrypted, err := EncryptPrivateKey(priv, mustPublicPEMForTest(t, &priv.PublicKey))
 	if err != nil {
 		t.Fatalf("EncryptPrivateKey error: %v", err)
 	}
 
-	pemBytes, err := EncodeToPem(encrypted, "PRIVATE KEY")
-	if err != nil {
-		t.Fatalf("EncodeToPem error: %v", err)
-	}
-
-	decrypted, err := DecryptPrivateKey(pemBytes)
+	decrypted, err := DecryptPrivateKey(encrypted, mustPublicPEMForTest(t, &priv.PublicKey))
 	if err != nil {
 		t.Fatalf("DecryptPrivateKey error: %v", err)
 	}
@@ -177,13 +172,47 @@ func TestEncryptDecryptPrivateKeyRoundTrip(t *testing.T) {
 
 func TestDecryptPrivateKeyInvalidPEM(t *testing.T) {
 	// Decoding fails before the master key is needed, so no skip guard here.
-	if _, err := DecryptPrivateKey([]byte("not a pem")); err == nil {
+	if _, err := DecryptPrivateKey([]byte("not a pem"), nil); err == nil {
 		t.Fatal("expected error for invalid PEM input")
 	}
 }
 
 func TestEncryptPrivateKeyInvalidKey(t *testing.T) {
-	if _, err := EncryptPrivateKey("not-a-key"); err == nil {
+	if _, err := EncryptPrivateKey("not-a-key", nil); err == nil {
 		t.Fatal("expected error for non-marshalable key")
+	}
+}
+
+func mustPublicPEMForTest(t *testing.T, pub any) []byte {
+	t.Helper()
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		t.Fatalf("failed to marshal public key: %v", err)
+	}
+	pemBytes, err := EncodeToPem(der, "PUBLIC KEY")
+	if err != nil {
+		t.Fatalf("failed to encode public key: %v", err)
+	}
+	return pemBytes
+}
+
+func TestDecryptPrivateKeyRejectsWrongPublicKey(t *testing.T) {
+	requireMasterKey(t)
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+	other, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate second key: %v", err)
+	}
+
+	privPem, _, err := ReturnPrivPubPem(priv, &priv.PublicKey)
+	if err != nil {
+		t.Fatalf("ReturnPrivPubPem error: %v", err)
+	}
+	if _, err := DecryptPrivateKey(privPem, mustPublicPEMForTest(t, &other.PublicKey)); err == nil {
+		t.Fatal("expected decryption to fail with a mismatched public key")
 	}
 }

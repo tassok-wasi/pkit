@@ -97,7 +97,7 @@ func TestExportCmd_Run(t *testing.T) {
 		{
 			name: "invalid key ID",
 			cmd: ExportCmd{
-				ID:     999999,
+				ID:     "999999",
 				Format: "pem",
 			},
 			wantErr: true,

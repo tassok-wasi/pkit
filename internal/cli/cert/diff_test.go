@@ -130,7 +130,7 @@ func TestDiffCmd_Run(t *testing.T) {
 		{
 			name: "non-existent ID1",
 			cmd: DiffCmd{
-				ID1: 999999,
+				ID1: "999999",
 				ID2: cert2.ID,
 			},
 			wantErr: true,
@@ -139,7 +139,7 @@ func TestDiffCmd_Run(t *testing.T) {
 			name: "non-existent ID2",
 			cmd: DiffCmd{
 				ID1: cert1.ID,
-				ID2: 999999,
+				ID2: "999999",
 			},
 			wantErr: true,
 		},

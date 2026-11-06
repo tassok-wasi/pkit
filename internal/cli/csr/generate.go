@@ -33,13 +33,13 @@ type GenerateCmd struct {
 	Province           []string `name:"st" help:"State or province (ST) name(s) for the CSR subject."`
 	StreetAddress      []string `name:"street" help:"Street address(es) for the CSR subject."`
 	PostalCode         []string `name:"postal-code" help:"Postal code(s) for the CSR subject."`
-	KeyType            string   `name:"type" required:"" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ecdsa-256" help:"Cryptographic algorithm and key size to generate for the CSR."`
+	KeyType            string   `name:"type" required:"" enum:"rsa-2048,rsa-4096,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ecdsa-256" help:"Algorithm for the automatically generated key pair (ignored when --kid is provided)."`
 	DNSNames           []string `name:"dns" help:"DNS Subject Alternative Names (SANs)."`
 	EmailAddresses     []string `name:"email" help:"Email Subject Alternative Names (SANs)."`
 	IPAddresses        []string `name:"ip" help:"IP address Subject Alternative Names (SANs)."`
 	URIs               []string `name:"uri" help:"URI Subject Alternative Names (SANs)."`
 
-	KeyID int64 `name:"kid" short:"k" help:"Database ID of the cryptographic key pair to associate with the CSR."`
+	KeyID string `name:"kid" short:"k" help:"short ID of the key pair; a new key is generated automatically when omitted."`
 }
 
 func (gc *GenerateCmd) Run(ctx context.Context, svc *service.Service) error {

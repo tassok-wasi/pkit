@@ -59,7 +59,7 @@ func TestCACmd_Run(t *testing.T) {
 			name: "invalid key ID returns error",
 			cmd: CACmd{
 				CommonName: "Gen Root CA Invalid Key",
-				KeyID:      999999,
+				KeyID:      "999999",
 				TTL:        "8760h",
 			},
 			wantErr: true,
@@ -91,5 +91,31 @@ func TestCACmd_Run(t *testing.T) {
 				t.Fatalf("CACmd.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestCACmd_AutoGeneratesKey(t *testing.T) {
+	cmd := CACmd{
+		CommonName: "Auto Key Root CA",
+		TTL:        "8760h",
+		KeyType:    "ed25519",
+	}
+	if err := cmd.Run(testCtx, testSvc); err != nil {
+		t.Fatalf("first run failed: %v", err)
+	}
+
+	key, err := testQuerier.GetKeyByName(testCtx, "auto_key_root_ca_key")
+	if err != nil {
+		t.Fatalf("expected auto-generated key: %v", err)
+	}
+	if key.Algorithm != "ed25519" {
+		t.Fatalf("expected ed25519 key, got %s", key.Algorithm)
+	}
+
+	if err := cmd.Run(testCtx, testSvc); err != nil {
+		t.Fatalf("second run failed: %v", err)
+	}
+	if _, err := testQuerier.GetKeyByName(testCtx, "auto_key_root_ca_key_2"); err != nil {
+		t.Fatalf("expected suffixed auto-generated key: %v", err)
 	}
 }

@@ -99,8 +99,8 @@ func TestCompareCSRs(t *testing.T) {
 func TestDiffCmd(t *testing.T) {
 	t.Parallel()
 
-	cmd := DiffCmd{ID1: 1, ID2: 2}
-	if cmd.ID1 != 1 {
-		t.Errorf("Expected ID1 to be 1, got %d", cmd.ID1)
+	cmd := DiffCmd{ID1: "1", ID2: "2"}
+	if cmd.ID1 != "1" {
+		t.Errorf("Expected ID1 to be 1, got %s", cmd.ID1)
 	}
 }

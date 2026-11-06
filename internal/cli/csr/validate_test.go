@@ -31,9 +31,9 @@ func TestValidateCmd(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			cmd := ValidateCmd{ID: 1}
-			if cmd.ID != 1 {
-				t.Errorf("Expected ID to be 1, got %d", cmd.ID)
+			cmd := ValidateCmd{ID: "1"}
+			if cmd.ID != "1" {
+				t.Errorf("Expected ID to be 1, got %s", cmd.ID)
 			}
 		})
 	}

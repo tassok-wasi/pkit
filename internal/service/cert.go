@@ -19,9 +19,11 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,8 +43,9 @@ type IssueRequest struct {
 	Subject      pkix.Name
 	SANs         pki.SANs
 	TTL          string
-	KeyID        int64
-	IssuerID     int64
+	KeyID        string
+	KeyType      string
+	IssuerID     string
 	KeyUsages    []string
 	ExtKeyUsages []string
 	PathLen      *int
@@ -50,9 +53,10 @@ type IssueRequest struct {
 
 // RotateRequest describes a certificate rotation.
 type RotateRequest struct {
-	ID       int64
-	IssuerID int64
-	KeyID    int64
+	ID       string
+	IssuerID string
+	KeyID    string
+	KeyType  string
 }
 
 // ListCertificatesRequest filters and paginates a certificate listing.
@@ -65,7 +69,7 @@ type ListCertificatesRequest struct {
 
 // CertificateSummary is a normalized row for listing certificates.
 type CertificateSummary struct {
-	ID           int64
+	ID           string
 	SerialNumber string
 	CommonName   string
 	Type         string
@@ -82,14 +86,14 @@ type DiffResult struct {
 
 // ExportRequest describes a single-artifact export to disk.
 type ExportRequest struct {
-	ID     int64
+	ID     string
 	Path   string
 	Format string
 }
 
 // ExportBundleRequest describes a certificate + key bundle export.
 type ExportBundleRequest struct {
-	ID         int64
+	ID         string
 	Path       string
 	Format     string
 	PassPhrase string
@@ -97,15 +101,22 @@ type ExportBundleRequest struct {
 
 // IssueCertificate issues a Root CA, Intermediate CA, or Leaf certificate and
 // persists it.
-func (s *Service) IssueCertificate(ctx context.Context, req IssueRequest) (sqlc.Certificate, error) {
+func (s *Service) IssueCertificate(ctx context.Context, req IssueRequest) (created sqlc.Certificate, retErr error) {
 	hours, err := crypto.ParseTTLToHours(req.TTL)
 	if err != nil {
 		return sqlc.Certificate{}, fmt.Errorf("invalid TTL value: %w", err)
 	}
 
-	dbKey, err := s.q.GetKeyByID(ctx, req.KeyID)
+	dbKey, autoKey, err := s.resolveKey(ctx, req.KeyID, req.Subject.CommonName, req.Type, req.KeyType)
 	if err != nil {
-		return sqlc.Certificate{}, fmt.Errorf("failed to get Key from DB: %w", err)
+		return sqlc.Certificate{}, fmt.Errorf("failed to resolve key for certificate: %w", err)
+	}
+	if autoKey {
+		defer func() {
+			if retErr != nil {
+				_ = s.q.DeleteKeyByID(ctx, dbKey.ID)
+			}
+		}()
 	}
 	privateKey, publicKey, err := parseKeyRecord(dbKey)
 	if err != nil {
@@ -123,6 +134,15 @@ func (s *Service) IssueCertificate(ctx context.Context, req IssueRequest) (sqlc.
 		}
 	}
 
+	keyUsages, err := crypto.ParseKeyUsages(req.KeyUsages)
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
+	extKeyUsages, err := crypto.ParseExtKeyUsages(req.ExtKeyUsages)
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
+
 	cert, err := pki.IssueCertificate(pki.CertOptions{
 		Type:       req.Type,
 		Subject:    req.Subject,
@@ -135,8 +155,8 @@ func (s *Service) IssueCertificate(ctx context.Context, req IssueRequest) (sqlc.
 		ParentCert: parentCert,
 		ParentKey:  parentKey,
 		Usages: &pki.KeyUsageConfig{
-			KeyUsages:    crypto.ParseKeyUsages(req.KeyUsages),
-			ExtKeyUsages: crypto.ParseExtKeyUsages(req.ExtKeyUsages),
+			KeyUsages:    keyUsages,
+			ExtKeyUsages: extKeyUsages,
 		},
 		PathLen: req.PathLen,
 	})
@@ -144,7 +164,8 @@ func (s *Service) IssueCertificate(ctx context.Context, req IssueRequest) (sqlc.
 		return sqlc.Certificate{}, fmt.Errorf("failed to issue certificate: %w", err)
 	}
 
-	return s.storeCertificate(ctx, s.q, cert, req.Type, dbKey.ID, issuerSerial)
+	created, retErr = s.storeCertificate(ctx, s.q, cert, req.Type, dbKey.ID, issuerSerial)
+	return created, retErr
 }
 
 // ListCertificates returns certificates matching the given filters.
@@ -198,21 +219,24 @@ func (s *Service) ListCertificates(ctx context.Context, req ListCertificatesRequ
 }
 
 // GetCertificate returns the raw stored record for a certificate.
-func (s *Service) GetCertificate(ctx context.Context, id int64) (sqlc.Certificate, error) {
+func (s *Service) GetCertificate(ctx context.Context, id string) (sqlc.Certificate, error) {
 	rec, err := s.getCertificateRecord(ctx, id)
 	if err != nil {
 		return sqlc.Certificate{}, fmt.Errorf("failed to fetch certificate from DB: %w", err)
+	}
+	if rec.Status != "REVOKED" && time.Now().After(rec.NotAfter) {
+		rec.Status = "EXPIRED"
 	}
 	return rec, nil
 }
 
 // GetCertificateSerialNumber returns the serial number of a stored certificate.
-func (s *Service) GetCertificateSerialNumber(ctx context.Context, id int64) (string, error) {
+func (s *Service) GetCertificateSerialNumber(ctx context.Context, id string) (string, error) {
 	return s.q.GetCertificateSerialNumberByID(ctx, id)
 }
 
 // GetParsedCertificate returns the parsed X.509 certificate for a stored record.
-func (s *Service) GetParsedCertificate(ctx context.Context, id int64) (*x509.Certificate, error) {
+func (s *Service) GetParsedCertificate(ctx context.Context, id string) (*x509.Certificate, error) {
 	rec, err := s.getCertificateRecord(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch certificate from DB: %w", err)
@@ -221,14 +245,14 @@ func (s *Service) GetParsedCertificate(ctx context.Context, id int64) (*x509.Cer
 }
 
 // RevokeCertificate marks a certificate as revoked with the given reason.
-func (s *Service) RevokeCertificate(ctx context.Context, id int64, reason string) error {
+func (s *Service) RevokeCertificate(ctx context.Context, id string, reason string) error {
 	dbCert, err := s.getCertificateRecord(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to fetch certificate from DB: %w", err)
 	}
 
 	if dbCert.IsRevoked.Int64 == 1 {
-		return fmt.Errorf("certificate with ID %d is already revoked", id)
+		return fmt.Errorf("certificate with ID %s is already revoked", id)
 	}
 
 	revReasonCode, err := crypto.ParseRevocationReason(reason)
@@ -252,7 +276,7 @@ func (s *Service) RevokeCertificate(ctx context.Context, id int64, reason string
 
 // RotateCertificate issues a replacement certificate with a new key pair and
 // revokes the previous one atomically.
-func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sqlc.Certificate, error) {
+func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (created sqlc.Certificate, retErr error) {
 	dbCert, err := s.getCertificateRecord(ctx, req.ID)
 	if err != nil {
 		return sqlc.Certificate{}, fmt.Errorf("failed to fetch certificate from DB: %w", err)
@@ -262,16 +286,23 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 		return sqlc.Certificate{}, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	keyPair, err := s.q.GetKeyByID(ctx, req.KeyID)
+	certType := pki.CertType(dbCert.Type)
+
+	keyPair, autoKey, err := s.resolveKey(ctx, req.KeyID, cert.Subject.CommonName, certType, req.KeyType)
 	if err != nil {
-		return sqlc.Certificate{}, fmt.Errorf("failed to fetch Key from DB: %w", err)
+		return sqlc.Certificate{}, fmt.Errorf("failed to resolve key for rotated certificate: %w", err)
+	}
+	if autoKey {
+		defer func() {
+			if retErr != nil {
+				_ = s.q.DeleteKeyByID(ctx, keyPair.ID)
+			}
+		}()
 	}
 	privateKey, publicKey, err := parseKeyRecord(keyPair)
 	if err != nil {
 		return sqlc.Certificate{}, fmt.Errorf("failed to parse keys: %w", err)
 	}
-
-	certType := pki.CertType(dbCert.Type)
 
 	if dbCert.IsRevoked.Valid && dbCert.IsRevoked.Int64 == 1 {
 		return sqlc.Certificate{}, fmt.Errorf("failed to rotate certificate: certificate is revoked")
@@ -282,7 +313,7 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 	var issuerSerial string
 
 	if certType != pki.TypeRootCA {
-		if req.IssuerID == 0 {
+		if req.IssuerID == "" {
 			return sqlc.Certificate{}, fmt.Errorf("issuer ID (--iss) is required when rotating Intermediate or Leaf certificates")
 		}
 		issuerCert, issuerPrivateKey, issuerSerial, err = s.resolveIssuer(ctx, req.IssuerID)
@@ -290,7 +321,7 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 			return sqlc.Certificate{}, err
 		}
 		if time.Now().After(issuerCert.NotAfter) {
-			return sqlc.Certificate{}, fmt.Errorf("failed to rotate certificate: specified issuer (ID: %d) has expired", req.IssuerID)
+			return sqlc.Certificate{}, fmt.Errorf("failed to rotate certificate: specified issuer (ID: %s) has expired", req.IssuerID)
 		}
 	}
 
@@ -306,6 +337,15 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 	}
 
 	ttlHours := int(cert.NotAfter.Sub(cert.NotBefore).Hours())
+
+	keyUsages, err := crypto.ParseKeyUsages(crypto.MarshalKeyUsage(cert.KeyUsage))
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
+	extKeyUsages, err := crypto.ParseExtKeyUsages(crypto.MarshalExtKeyUsages(cert.ExtKeyUsage))
+	if err != nil {
+		return sqlc.Certificate{}, err
+	}
 
 	newCert, err := pki.IssueCertificate(pki.CertOptions{
 		Type:    certType,
@@ -324,8 +364,8 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 		ParentCert: issuerCert,
 		ParentKey:  issuerPrivateKey,
 		Usages: &pki.KeyUsageConfig{
-			KeyUsages:    crypto.ParseKeyUsages(crypto.MarshalKeyUsage(cert.KeyUsage)),
-			ExtKeyUsages: crypto.ParseExtKeyUsages(crypto.MarshalExtKeyUsages(cert.ExtKeyUsage)),
+			KeyUsages:    keyUsages,
+			ExtKeyUsages: extKeyUsages,
 		},
 		PathLen: pathLen,
 	})
@@ -333,10 +373,9 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 		return sqlc.Certificate{}, fmt.Errorf("failed to issue rotated Certificate: %w", err)
 	}
 
-	var created sqlc.Certificate
 	err = store.RunInTx(ctx, s.db, func(txQuerier sqlc.Querier) error {
 		var txErr error
-		created, txErr = s.storeCertificate(ctx, txQuerier, newCert, certType, req.KeyID, issuerSerial)
+		created, txErr = s.storeCertificate(ctx, txQuerier, newCert, certType, keyPair.ID, issuerSerial)
 		if txErr != nil {
 			return fmt.Errorf("failed to insert new rotated Certificate in DB: %w", txErr)
 		}
@@ -358,14 +397,24 @@ func (s *Service) RotateCertificate(ctx context.Context, req RotateRequest) (sql
 		return sqlc.Certificate{}, fmt.Errorf("transaction failed, data rolled back: %w", err)
 	}
 
-	return created, nil
+	return created, retErr
 }
 
 // DeleteCertificate removes a certificate from the database.
-func (s *Service) DeleteCertificate(ctx context.Context, id int64) error {
-	if _, err := s.getCertificateRecord(ctx, id); err != nil {
+func (s *Service) DeleteCertificate(ctx context.Context, id string) error {
+	dbCert, err := s.getCertificateRecord(ctx, id)
+	if err != nil {
 		return fmt.Errorf("failed to fetch certificate from DB: %w", err)
 	}
+
+	dependents, err := s.q.CountCertificatesByIssuerSerialNumber(ctx, sql.NullString{String: dbCert.SerialNumber, Valid: true})
+	if err != nil {
+		return fmt.Errorf("failed to check certificate dependents: %w", err)
+	}
+	if dependents > 0 {
+		return fmt.Errorf("cannot delete certificate: it is the issuer of %d certificate(s)", dependents)
+	}
+
 	if err := s.q.DeleteCertificateByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete certificate from DB: %w", err)
 	}
@@ -374,76 +423,91 @@ func (s *Service) DeleteCertificate(ctx context.Context, id int64) error {
 
 // VerifyCertificateChain builds and cryptographically verifies the trust chain
 // for a certificate, returning the ordered chain (leaf first).
-func (s *Service) VerifyCertificateChain(ctx context.Context, id int64) ([]*x509.Certificate, error) {
+func (s *Service) VerifyCertificateChain(ctx context.Context, id string) ([]*x509.Certificate, error) {
 	cert, err := s.GetParsedCertificate(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	chain := []*x509.Certificate{cert}
-	workingCert := cert
+	var chain []*x509.Certificate
 
-	const maxChainDepth = 10
-	for depth := 0; depth < maxChainDepth; depth++ {
-		if workingCert.Subject.String() == workingCert.Issuer.String() {
-			break
+	if cert.Subject.String() == cert.Issuer.String() {
+		if err := cert.CheckSignatureFrom(cert); err != nil {
+			return nil, fmt.Errorf("root certificate self-signature verification failed: %w", err)
 		}
-
-		if len(workingCert.AuthorityKeyId) == 0 {
-			return nil, fmt.Errorf("Verification Failed: Chain broken. Certificate '%s' is not self-signed but lacks an Authority Key Identifier extension", workingCert.Subject.CommonName)
+		now := time.Now()
+		if now.Before(cert.NotBefore) || now.After(cert.NotAfter) {
+			return nil, fmt.Errorf("root certificate is outside its validity period")
 		}
-
-		akidHex := fmt.Sprintf("%x", workingCert.AuthorityKeyId)
-
-		parentDBCert, err := s.q.GetCertificateBySKID(ctx, akidHex)
+		chain = []*x509.Certificate{cert}
+	} else {
+		parents, err := s.buildChain(ctx, cert)
 		if err != nil {
-			return nil, fmt.Errorf("Verification Failed: Trust chain broken. Authority Certificate with SKID [%s] (Issuer: %s) could not be found in the system: %w", akidHex, workingCert.Issuer.CommonName, err)
+			return nil, err
 		}
+		chain = append([]*x509.Certificate{cert}, parents...)
+	}
 
-		if parentDBCert.CommonName != "" && workingCert.Issuer.CommonName != "" && parentDBCert.CommonName != workingCert.Issuer.CommonName {
-			return nil, fmt.Errorf("Verification Failed: Trust chain broken. Resolved parent certificate '%s' does not match expected issuer '%s'", parentDBCert.CommonName, workingCert.Issuer.CommonName)
-		}
-
-		parentCert, err := parseCertificateRecord(parentDBCert)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse parent certificate: %w", err)
-		}
-		if workingCert.Issuer.String() != "" && parentCert.Subject.String() != workingCert.Issuer.String() {
-			return nil, fmt.Errorf("Verification Failed: Trust chain broken. Resolved parent subject '%s' does not match expected issuer '%s'", parentCert.Subject.String(), workingCert.Issuer.String())
-		}
-
-		if err := workingCert.CheckSignatureFrom(parentCert); err != nil {
-			return nil, fmt.Errorf("Verification Failed: Cryptographic signature mismatch between %s and issuer %s: %w", workingCert.Subject.CommonName, parentCert.Subject.CommonName, err)
-		}
-
-		chain = append(chain, parentCert)
-		workingCert = parentCert
-
-		if depth == maxChainDepth-1 {
-			return nil, fmt.Errorf("Verification Failed: Exceeded maximum allowed chain depth (%d)", maxChainDepth)
+	roots := x509.NewCertPool()
+	intermediates := x509.NewCertPool()
+	roots.AddCert(chain[len(chain)-1])
+	if len(chain) > 2 {
+		for _, parent := range chain[1 : len(chain)-1] {
+			intermediates.AddCert(parent)
 		}
 	}
 
-	now := time.Now()
-	for _, c := range chain {
-		if now.Before(c.NotBefore) {
-			return nil, fmt.Errorf("Verification Failed: Certificate '%s' is not active yet (Valid from: %s)", c.Subject.CommonName, c.NotBefore.Format("2006-01-02 15:04:05 UTC"))
-		}
-		if now.After(c.NotAfter) {
-			return nil, fmt.Errorf("Verification Failed: Certificate '%s' expired on %s", c.Subject.CommonName, c.NotAfter.Format("2006-01-02 15:04:05 UTC"))
-		}
+	if _, err := chain[0].Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}); err != nil {
+		return nil, fmt.Errorf("trust chain verification failed: %w", err)
 	}
 
-	rootCert := chain[len(chain)-1]
-	if err := rootCert.CheckSignatureFrom(rootCert); err != nil {
-		return nil, fmt.Errorf("Verification Failed: Root certificate is self-signed but possesses a corrupt or invalid self-signature: %w", err)
+	for i := 0; i < len(chain)-1; i++ {
+		issuerDB, err := s.q.GetCertificateBySKID(ctx, hex.EncodeToString(chain[i].AuthorityKeyId))
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve issuer for revocation check: %w", err)
+		}
+		crlRow, err := s.q.GetLatestCRL(ctx, issuerDB.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch issuer CRL: %w", err)
+		}
+		crl, err := crypto.ParseCRL([]byte(crlRow.CrlPem))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse issuer CRL: %w", err)
+		}
+		if err := crl.CheckSignatureFrom(chain[i+1]); err != nil {
+			return nil, fmt.Errorf("issuer CRL signature verification failed: %w", err)
+		}
+		if serialRevoked(crl, chain[i].SerialNumber) {
+			return nil, fmt.Errorf("certificate %s is revoked", chain[i].Subject.CommonName)
+		}
 	}
 
 	return chain, nil
 }
 
+func serialRevoked(crl *x509.RevocationList, serial *big.Int) bool {
+	for _, entry := range crl.RevokedCertificateEntries {
+		if entry.SerialNumber.Cmp(serial) == 0 {
+			return true
+		}
+	}
+	for _, entry := range crl.RevokedCertificates {
+		if entry.SerialNumber.Cmp(serial) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateCertificate runs structural and policy checks on a stored certificate.
-func (s *Service) ValidateCertificate(ctx context.Context, id int64) (pki.ValidationResult, error) {
+func (s *Service) ValidateCertificate(ctx context.Context, id string) (pki.ValidationResult, error) {
 	cert, err := s.GetParsedCertificate(ctx, id)
 	if err != nil {
 		return pki.ValidationResult{}, err
@@ -452,14 +516,14 @@ func (s *Service) ValidateCertificate(ctx context.Context, id int64) (pki.Valida
 }
 
 // DiffCertificates compares two stored certificates.
-func (s *Service) DiffCertificates(ctx context.Context, id1, id2 int64) (DiffResult, error) {
+func (s *Service) DiffCertificates(ctx context.Context, id1, id2 string) (DiffResult, error) {
 	cert1, err := s.GetParsedCertificate(ctx, id1)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to fetch certificate ID %d: %w", id1, err)
+		return DiffResult{}, fmt.Errorf("failed to fetch certificate ID %s: %w", id1, err)
 	}
 	cert2, err := s.GetParsedCertificate(ctx, id2)
 	if err != nil {
-		return DiffResult{}, fmt.Errorf("failed to fetch certificate ID %d: %w", id2, err)
+		return DiffResult{}, fmt.Errorf("failed to fetch certificate ID %s: %w", id2, err)
 	}
 
 	return DiffResult{

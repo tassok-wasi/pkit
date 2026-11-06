@@ -101,7 +101,7 @@ func TestRevokeCmd_Run(t *testing.T) {
 		{
 			name: "revoke non-existent cert ID",
 			cmd: RevokeCmd{
-				ID:     999999,
+				ID:     "999999",
 				Reason: "key-compromise",
 			},
 			wantErr: true,

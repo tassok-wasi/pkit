@@ -68,7 +68,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 			name: "non-existent key ID returns error",
 			cmd: GenerateCmd{
 				CommonName: "nokey.example.com",
-				KeyID:      999999,
+				KeyID:      "999999",
 			},
 			wantErr: true,
 		},
@@ -81,5 +81,23 @@ func TestGenerateCmd_Run(t *testing.T) {
 				t.Fatalf("GenerateCmd.Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestGenerateCmd_AutoGeneratesKey(t *testing.T) {
+	cmd := GenerateCmd{
+		CommonName: "auto-csr.example.com",
+		KeyType:    "ed25519",
+	}
+	if err := cmd.Run(testCtx, testSvc); err != nil {
+		t.Fatalf("GenerateCmd.Run() failed: %v", err)
+	}
+
+	key, err := testQuerier.GetKeyByName(testCtx, "auto_csr_example_com_key")
+	if err != nil {
+		t.Fatalf("expected automatically generated key: %v", err)
+	}
+	if key.Algorithm != "ed25519" {
+		t.Fatalf("generated key algorithm = %s, want ed25519", key.Algorithm)
 	}
 }

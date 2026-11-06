@@ -22,7 +22,7 @@ import (
 )
 
 type DeleteCmd struct {
-	ID int64 `arg:"" help:"Database ID of the certificate to delete."`
+	ID string `arg:"" help:"short ID of the certificate to delete."`
 }
 
 func (dc *DeleteCmd) Run(ctx context.Context, svc *service.Service) error {
@@ -30,6 +30,6 @@ func (dc *DeleteCmd) Run(ctx context.Context, svc *service.Service) error {
 		return err
 	}
 
-	fmt.Printf("Successfully deleted certificate %d\n", dc.ID)
+	fmt.Printf("Successfully deleted certificate %s\n", dc.ID)
 	return nil
 }

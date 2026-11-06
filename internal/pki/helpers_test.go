@@ -46,11 +46,11 @@ func TestGetKey(t *testing.T) {
 			expectErr:    false,
 		},
 		{
-			name:         "Generate ECDSA P-224 KeyPair",
-			keyType:      ECDSA_P224,
-			wantPrivType: reflect.TypeFor[*ecdsa.PrivateKey](),
-			wantPubType:  reflect.TypeFor[*ecdsa.PublicKey](),
-			expectErr:    false,
+			name:         "Reject ECDSA P-224 KeyPair",
+			keyType:      KeyType("ecdsa-224"),
+			wantPrivType: nil,
+			wantPubType:  nil,
+			expectErr:    true,
 		},
 		{
 			name:         "Generate ECDSA P-256 KeyPair",
@@ -123,8 +123,6 @@ func TestGetKey(t *testing.T) {
 			case *ecdsa.PrivateKey:
 				var expectedCurve elliptic.Curve
 				switch tt.keyType {
-				case ECDSA_P224:
-					expectedCurve = elliptic.P224()
 				case ECDSA_P256:
 					expectedCurve = elliptic.P256()
 				case ECDSA_P384:

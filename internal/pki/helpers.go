@@ -44,15 +44,6 @@ func GetKey(keyType KeyType) (*KeyPair, error) {
 			PrivateKey: privKey,
 			PublicKey:  pubKey,
 		}, nil
-	case ECDSA_P224:
-		privKey, pubKey, err := crypto.GetECDSAKey(elliptic.P224())
-		if err != nil {
-			return nil, err
-		}
-		return &KeyPair{
-			PrivateKey: privKey,
-			PublicKey:  pubKey,
-		}, nil
 	case ECDSA_P256:
 		privKey, pubKey, err := crypto.GetECDSAKey(elliptic.P256())
 		if err != nil {

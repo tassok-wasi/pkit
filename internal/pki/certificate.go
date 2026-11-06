@@ -15,7 +15,10 @@
 package pki
 
 import (
+	"bytes"
+	stdcrypto "crypto"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
@@ -61,17 +64,23 @@ func IssueCertificate(opts CertOptions) (*x509.Certificate, error) {
 	if opts.TTLInHours <= 0 {
 		return nil, errors.New("certificate TTL must be greater than zero")
 	}
+	switch opts.Type {
+	case TypeRootCA, TypeIntermediate, TypeLeaf:
+	default:
+		return nil, fmt.Errorf("unsupported certificate type: %s", opts.Type)
+	}
 
 	serialNumber, err := crypto.GetSerialNumber()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
-	// 1. Base Template Setup
 	isCA := opts.Type == TypeRootCA || opts.Type == TypeIntermediate
+	notBefore := time.Now().UTC()
 	template := GetBaseTemplate(opts.Subject, serialNumber, opts.TTLInHours, isCA)
+	template.NotBefore = notBefore
+	template.NotAfter = notBefore.Add(time.Duration(opts.TTLInHours) * time.Hour)
 
-	// 2. Set SANs (for Intermediate and Leaf)
 	if opts.Type != TypeRootCA {
 		template.DNSNames = opts.SANs.DNSNames
 		template.EmailAddresses = opts.SANs.EmailAddresses
@@ -79,53 +88,77 @@ func IssueCertificate(opts CertOptions) (*x509.Certificate, error) {
 		template.URIs = opts.SANs.URIs
 	}
 
-	// 3. Handle Path Length Constraints for Intermediates
 	if opts.Type == TypeIntermediate && opts.PathLen != nil {
+		if *opts.PathLen < 0 {
+			return nil, errors.New("path length must not be negative")
+		}
 		if *opts.PathLen == 0 {
 			template.MaxPathLen = 0
-			template.MaxPathLenZero = true // Strictly restricts this CA to only sign leaf certs
-		} else if *opts.PathLen > 0 {
+			template.MaxPathLenZero = true
+		} else {
 			template.MaxPathLen = *opts.PathLen
 			template.MaxPathLenZero = false
 		}
 	}
 
-	// 4. Configure Key Usages
-	applyKeyUsages(template, opts)
+	if err := applyKeyUsages(template, opts); err != nil {
+		return nil, err
+	}
 
-	// 5. Configure Key Identifiers (SKID & AKID)
 	skid, err := GenerateSKID(opts.KeyPair.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate SKID: %w", err)
 	}
 	template.SubjectKeyId = skid
 
-	// 6. Issuer & Signing Setup
 	var signingCert *x509.Certificate
 	var signingKey any
 
 	if opts.Type == TypeRootCA {
-		// Self-signed Root CA
 		template.AuthorityKeyId = skid
 		signingCert = template
 		signingKey = opts.KeyPair.PrivateKey
+		if signingKey == nil {
+			return nil, errors.New("private key is required for a self-signed root CA")
+		}
 	} else {
-		// Signed by Parent CA (Root or another Intermediate)
 		if opts.ParentCert == nil || opts.ParentKey == nil {
 			return nil, fmt.Errorf("parent certificate and private key required for type: %s", opts.Type)
 		}
 		if !opts.ParentCert.IsCA {
 			return nil, errors.New("parent certificate must be a CA")
 		}
-		if time.Now().After(opts.ParentCert.NotAfter) {
+		if opts.ParentCert.KeyUsage != 0 && opts.ParentCert.KeyUsage&x509.KeyUsageCertSign == 0 {
+			return nil, errors.New("parent certificate is not permitted to sign certificates")
+		}
+
+		now := time.Now()
+		if now.Before(opts.ParentCert.NotBefore) {
+			return nil, errors.New("parent certificate is not valid yet")
+		}
+		if now.After(opts.ParentCert.NotAfter) {
 			return nil, errors.New("parent certificate has expired")
 		}
+		if isCA && opts.ParentCert.MaxPathLenZero {
+			return nil, errors.New("parent certificate path length does not allow another CA")
+		}
+		if template.NotAfter.After(opts.ParentCert.NotAfter) {
+			return nil, fmt.Errorf("certificate validity exceeds issuer expiry (%s)", opts.ParentCert.NotAfter.Format(time.RFC3339))
+		}
+
+		signer, ok := opts.ParentKey.(stdcrypto.Signer)
+		if !ok {
+			return nil, errors.New("parent private key does not implement crypto.Signer")
+		}
+		if !samePublicKey(signer.Public(), opts.ParentCert.PublicKey) {
+			return nil, errors.New("parent private key does not match parent certificate")
+		}
+
 		template.AuthorityKeyId = opts.ParentCert.SubjectKeyId
 		signingCert = opts.ParentCert
 		signingKey = opts.ParentKey
 	}
 
-	// 7. Create & Parse Final Certificate
 	derBytes, err := x509.CreateCertificate(rand.Reader, template, signingCert, opts.KeyPair.PublicKey, signingKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign certificate: %w", err)
@@ -137,6 +170,19 @@ func IssueCertificate(opts CertOptions) (*x509.Certificate, error) {
 	}
 
 	return cert, nil
+}
+
+// samePublicKey compares two public keys by their PKIX encoding.
+func samePublicKey(a, b any) bool {
+	derA, err := x509.MarshalPKIXPublicKey(a)
+	if err != nil {
+		return false
+	}
+	derB, err := x509.MarshalPKIXPublicKey(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(derA, derB)
 }
 
 // GetBaseTemplate generates the basic certificate scaffolding.
@@ -152,19 +198,25 @@ func GetBaseTemplate(subject pkix.Name, serialNumber *big.Int, ttlInHour int, is
 }
 
 // Internal helper to apply key usages dynamically or fall back to standard defaults.
-func applyKeyUsages(template *x509.Certificate, opts CertOptions) {
+func applyKeyUsages(template *x509.Certificate, opts CertOptions) error {
 	if opts.Usages != nil && len(opts.Usages.KeyUsages) > 0 {
 		template.KeyUsage = 0
 		for _, ku := range opts.Usages.KeyUsages {
 			template.KeyUsage |= ku
 		}
+	} else if template.IsCA {
+		template.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageCRLSign
 	} else {
-		// Default Usages
-		if template.IsCA {
-			template.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageCRLSign
-		} else {
-			template.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+		template.KeyUsage = x509.KeyUsageDigitalSignature
+		if _, ok := opts.KeyPair.PublicKey.(*rsa.PublicKey); ok {
+			template.KeyUsage |= x509.KeyUsageKeyEncipherment
 		}
+	}
+
+	if template.IsCA {
+		template.KeyUsage |= x509.KeyUsageCertSign
+	} else if template.KeyUsage&(x509.KeyUsageCertSign|x509.KeyUsageCRLSign) != 0 {
+		return errors.New("leaf certificates cannot have cert-sign or crl-sign key usage")
 	}
 
 	if opts.Usages != nil && len(opts.Usages.ExtKeyUsages) > 0 {
@@ -172,4 +224,6 @@ func applyKeyUsages(template *x509.Certificate, opts CertOptions) {
 	} else if opts.Type == TypeLeaf {
 		template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 	}
+
+	return nil
 }

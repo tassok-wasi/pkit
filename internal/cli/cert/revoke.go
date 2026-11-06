@@ -21,8 +21,8 @@ import (
 )
 
 type RevokeCmd struct {
-	ID     int64  `arg:"" help:"Database ID of the certificate to revoke."`
-	Reason string `name:"reason" short:"r" required:"" enum:"unspecified,key-compromise,ca-compromise,affiliation-changed,superseded,cessation-of-operation,certificate-hold,remove-from-crl,privilege-withdrawn,a-a-compromise" help:"Revocation reason code for the certificate."`
+	ID     string `arg:"" help:"short ID of the certificate to revoke."`
+	Reason string `name:"reason" short:"r" required:"" enum:"unspecified,key-compromise,ca-compromise,affiliation-changed,superseded,cessation-of-operation,certificate-hold,privilege-withdrawn,a-a-compromise" help:"Revocation reason code for the certificate."`
 }
 
 func (rc *RevokeCmd) Run(ctx context.Context, svc *service.Service) error {

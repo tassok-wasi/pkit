@@ -60,7 +60,7 @@ func TestReadCmd_Run(t *testing.T) {
 		},
 		{
 			name:    "read non-existent CSR returns error",
-			cmd:     ReadCmd{ID: 999999},
+			cmd:     ReadCmd{ID: "999999"},
 			wantErr: true,
 		},
 	}

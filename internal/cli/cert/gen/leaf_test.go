@@ -112,7 +112,7 @@ func TestLeafCmd_Run(t *testing.T) {
 			cmd: LeafCmd{
 				CommonName: "noissuer.example.com",
 				KeyID:      dbLeafKey.ID,
-				IssuerID:   999999,
+				IssuerID:   "999999",
 				TTL:        "720h",
 			},
 			wantErr: true,

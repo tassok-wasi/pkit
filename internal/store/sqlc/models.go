@@ -10,11 +10,11 @@ import (
 )
 
 type Certificate struct {
-	ID                 int64          `json:"id"`
+	ID                 string         `json:"id"`
 	SerialNumber       string         `json:"serial_number"`
 	CommonName         string         `json:"common_name"`
 	Type               string         `json:"type"`
-	KeyID              int64          `json:"key_id"`
+	KeyID              string         `json:"key_id"`
 	IssuerSerialNumber sql.NullString `json:"issuer_serial_number"`
 	NotBefore          time.Time      `json:"not_before"`
 	NotAfter           time.Time      `json:"not_after"`
@@ -29,10 +29,10 @@ type Certificate struct {
 }
 
 type Crl struct {
-	ID         int64        `json:"id"`
+	ID         string       `json:"id"`
 	Name       string       `json:"name"`
 	CrlNumber  int64        `json:"crl_number"`
-	IssuerID   int64        `json:"issuer_id"`
+	IssuerID   string       `json:"issuer_id"`
 	ThisUpdate time.Time    `json:"this_update"`
 	NextUpdate time.Time    `json:"next_update"`
 	CrlPem     string       `json:"crl_pem"`
@@ -40,17 +40,17 @@ type Crl struct {
 }
 
 type Csr struct {
-	ID            int64         `json:"id"`
-	CommonName    string        `json:"common_name"`
-	KeyID         int64         `json:"key_id"`
-	Status        string        `json:"status"`
-	CsrPem        string        `json:"csr_pem"`
-	CertificateID sql.NullInt64 `json:"certificate_id"`
-	CreatedAt     sql.NullTime  `json:"created_at"`
+	ID            string         `json:"id"`
+	CommonName    string         `json:"common_name"`
+	KeyID         string         `json:"key_id"`
+	Status        string         `json:"status"`
+	CsrPem        string         `json:"csr_pem"`
+	CertificateID sql.NullString `json:"certificate_id"`
+	CreatedAt     sql.NullTime   `json:"created_at"`
 }
 
 type Key struct {
-	ID            int64        `json:"id"`
+	ID            string       `json:"id"`
 	Name          string       `json:"name"`
 	Algorithm     string       `json:"algorithm"`
 	PrivateKeyPem string       `json:"private_key_pem"`

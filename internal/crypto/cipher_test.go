@@ -57,7 +57,7 @@ func TestEncryptAndDecrypt_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encrypt
-			ciphertext, err := Encrypt(tt.plaintext, tt.masterKey)
+			ciphertext, err := Encrypt(tt.plaintext, tt.masterKey, nil)
 			if err != nil {
 				t.Fatalf("Encrypt() unexpected error: %v", err)
 			}
@@ -67,7 +67,7 @@ func TestEncryptAndDecrypt_Success(t *testing.T) {
 			}
 
 			// Decrypt
-			decrypted, err := Decrypt(ciphertext, tt.masterKey)
+			decrypted, err := Decrypt(ciphertext, tt.masterKey, nil)
 			if err != nil {
 				t.Fatalf("Decrypt() unexpected error: %v", err)
 			}
@@ -96,12 +96,12 @@ func TestEncryptAndDecrypt_Errors(t *testing.T) {
 
 		for _, tt := range invalidKeys {
 			t.Run(tt.name, func(t *testing.T) {
-				_, err := Encrypt([]byte("data"), tt.key)
+				_, err := Encrypt([]byte("data"), tt.key, nil)
 				if err == nil {
 					t.Error("Expected Encrypt to fail with invalid key size, but got nil error")
 				}
 
-				_, err = Decrypt([]byte("data"), tt.key)
+				_, err = Decrypt([]byte("data"), tt.key, nil)
 				if err == nil {
 					t.Error("Expected Decrypt to fail with invalid key size, but got nil error")
 				}
@@ -111,7 +111,7 @@ func TestEncryptAndDecrypt_Errors(t *testing.T) {
 
 	t.Run("Decryption Failure Cases", func(t *testing.T) {
 		plaintext := []byte("highly-sensitive-payload")
-		ciphertext, err := Encrypt(plaintext, validKey)
+		ciphertext, err := Encrypt(plaintext, validKey, nil)
 		if err != nil {
 			t.Fatalf("Setup encryption failed: %v", err)
 		}
@@ -144,7 +144,7 @@ func TestEncryptAndDecrypt_Errors(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, err := Decrypt(tt.ciphertext, tt.key)
+				_, err := Decrypt(tt.ciphertext, tt.key, nil)
 				if err == nil {
 					t.Error("Expected decryption to fail, but got nil error")
 				}

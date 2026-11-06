@@ -149,17 +149,17 @@ func TestDeleteCmd_Run(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "delete certificate referenced as issuer by another cert still works",
+			name: "delete certificate referenced as issuer by another cert is rejected",
 			cmd: DeleteCmd{
 				ID: dbIssuerCert.ID,
 			},
-			wantErr:    false,
-			verifyGone: true,
+			wantErr:    true,
+			verifyGone: false,
 		},
 		{
 			name: "delete non-existent certificate returns error",
 			cmd: DeleteCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},
@@ -175,7 +175,7 @@ func TestDeleteCmd_Run(t *testing.T) {
 			if tt.verifyGone {
 				_, err := testQuerier.GetCertificateByID(testCtx, tt.cmd.ID)
 				if err == nil {
-					t.Fatalf("expected certificate %d to be deleted, but it still exists", tt.cmd.ID)
+					t.Fatalf("expected certificate %s to be deleted, but it still exists", tt.cmd.ID)
 				}
 			}
 		})

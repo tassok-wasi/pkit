@@ -120,7 +120,7 @@ func TestValidateCmd_Run(t *testing.T) {
 		{
 			name: "validate non-existent cert ID",
 			cmd: ValidateCmd{
-				ID: 999999,
+				ID: "999999",
 			},
 			wantErr: true,
 		},

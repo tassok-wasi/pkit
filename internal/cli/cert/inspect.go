@@ -30,11 +30,11 @@ import (
 )
 
 type InspectCmd struct {
-	ID          int64 `arg:"" help:"Database ID of the certificate to inspect."`
-	Fingerprint bool  `name:"fingerprint" short:"f" help:"Display SHA-1 and SHA-256 certificate fingerprints."`
-	Usage       bool  `name:"key-usages" short:"u" help:"Display X.509 key usage and extended key usage flags."`
-	Extensions  bool  `name:"extensions" short:"e" help:"Display X.509 structural extension attributes."`
-	JSON        bool  `name:"json" short:"j" help:"Output certificate details in JSON format."`
+	ID          string `arg:"" help:"short ID of the certificate to inspect."`
+	Fingerprint bool   `name:"fingerprint" short:"f" help:"Display SHA-1 and SHA-256 certificate fingerprints."`
+	Usage       bool   `name:"key-usages" short:"u" help:"Display X.509 key usage and extended key usage flags."`
+	Extensions  bool   `name:"extensions" short:"e" help:"Display X.509 structural extension attributes."`
+	JSON        bool   `name:"json" short:"j" help:"Output certificate details in JSON format."`
 }
 
 type JSONOutput struct {

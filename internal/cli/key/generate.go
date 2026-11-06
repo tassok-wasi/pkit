@@ -21,7 +21,7 @@ import (
 )
 
 type GenerateCmd struct {
-	KeyType string `name:"type" required:"" enum:"rsa-2048,rsa-4096,ecdsa-224,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"Cryptographic algorithm and key size to generate."`
+	KeyType string `name:"type" required:"" enum:"rsa-2048,rsa-4096,ecdsa-256,ecdsa-384,ecdsa-521,ed25519" default:"ed25519" help:"Cryptographic algorithm and key size to generate."`
 	Name    string `name:"name" required:"" help:"Friendly identifier name for the key pair in the database."`
 }
 

@@ -30,17 +30,17 @@ import (
 )
 
 type InspectCmd struct {
-	ID       int  `arg:"" help:"Database ID of the key pair to inspect."`
-	Validate bool `name:"validate" short:"v" help:"Verify the mathematical integrity and validity of the private key."`
+	ID       string `arg:"" help:"short ID of the key pair to inspect."`
+	Validate bool   `name:"validate" short:"v" help:"Verify the mathematical integrity and validity of the private key."`
 }
 
 func (ic *InspectCmd) Run(ctx context.Context, svc *service.Service) error {
-	key, err := svc.GetKey(ctx, int64(ic.ID))
+	key, err := svc.GetKey(ctx, ic.ID)
 	if err != nil {
 		return err
 	}
 
-	privateKey, publicKey, err := svc.GetParsedKey(ctx, int64(ic.ID))
+	privateKey, publicKey, err := svc.GetParsedKey(ctx, ic.ID)
 	if err != nil {
 		return err
 	}

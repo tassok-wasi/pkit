@@ -10,23 +10,24 @@ import (
 )
 
 type Querier interface {
+	CountCertificatesByIssuerSerialNumber(ctx context.Context, issuerSerialNumber sql.NullString) (int64, error)
 	CreateCRL(ctx context.Context, arg CreateCRLParams) (Crl, error)
 	CreateCSR(ctx context.Context, arg CreateCSRParams) (Csr, error)
 	CreateCertificate(ctx context.Context, arg CreateCertificateParams) (Certificate, error)
 	CreateKeyPair(ctx context.Context, arg CreateKeyPairParams) (Key, error)
-	DeleteCertificateByID(ctx context.Context, id int64) error
-	DeleteKeyByID(ctx context.Context, id int64) error
-	GetCRLByID(ctx context.Context, id int64) (Crl, error)
-	GetCSRByID(ctx context.Context, id int64) (Csr, error)
+	DeleteCertificateByID(ctx context.Context, id string) error
+	DeleteKeyByID(ctx context.Context, id string) error
+	GetCRLByID(ctx context.Context, id string) (Crl, error)
+	GetCSRByID(ctx context.Context, id string) (Csr, error)
 	GetCertificateByCN(ctx context.Context, commonName string) (Certificate, error)
-	GetCertificateByID(ctx context.Context, id int64) (Certificate, error)
+	GetCertificateByID(ctx context.Context, id string) (Certificate, error)
 	GetCertificateBySKID(ctx context.Context, skid string) (Certificate, error)
 	GetCertificateBySN(ctx context.Context, serialNumber string) (Certificate, error)
-	GetCertificateSerialNumberByID(ctx context.Context, id int64) (string, error)
-	GetKeyByID(ctx context.Context, id int64) (Key, error)
+	GetCertificateSerialNumberByID(ctx context.Context, id string) (string, error)
+	GetKeyByID(ctx context.Context, id string) (Key, error)
 	GetKeyByName(ctx context.Context, name string) (Key, error)
-	GetLatestCRL(ctx context.Context, issuerID int64) (GetLatestCRLRow, error)
-	ListAllCRLs(ctx context.Context, issuerID int64) ([]Crl, error)
+	GetLatestCRL(ctx context.Context, issuerID string) (GetLatestCRLRow, error)
+	ListAllCRLs(ctx context.Context, issuerID string) ([]Crl, error)
 	ListAllCSRs(ctx context.Context, status sql.NullString) ([]ListAllCSRsRow, error)
 	ListAllCertificates(ctx context.Context, arg ListAllCertificatesParams) ([]ListAllCertificatesRow, error)
 	ListAllKeys(ctx context.Context) ([]ListAllKeysRow, error)
@@ -37,7 +38,7 @@ type Querier interface {
 	ListKeys(ctx context.Context, arg ListKeysParams) ([]ListKeysRow, error)
 	ListRevokedCertificates(ctx context.Context, arg ListRevokedCertificatesParams) ([]Certificate, error)
 	RevokeCertificate(ctx context.Context, arg RevokeCertificateParams) (Certificate, error)
-	UpdateCSRStatus(ctx context.Context, arg UpdateCSRStatusParams) error
+	UpdateCSRStatus(ctx context.Context, arg UpdateCSRStatusParams) (int64, error)
 	UpdateCertificate(ctx context.Context, arg UpdateCertificateParams) (Certificate, error)
 	UpdateKeyName(ctx context.Context, arg UpdateKeyNameParams) (Key, error)
 }

@@ -15,13 +15,16 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
 )
 
-func Encrypt(plaintext, masterKey []byte) ([]byte, error) {
+var ciphertextVersion = []byte("PKIT1")
+
+func Encrypt(plaintext, masterKey, aad []byte) ([]byte, error) {
 	block, err := aes.NewCipher(masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate cipher block: %w", err)
@@ -37,10 +40,11 @@ func Encrypt(plaintext, masterKey []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate secure nonce: %w", err)
 	}
 
-	return aesGCM.Seal(nonce, nonce, plaintext, nil), nil
+	ciphertext := append(append([]byte{}, ciphertextVersion...), nonce...)
+	return aesGCM.Seal(ciphertext, nonce, plaintext, aad), nil
 }
 
-func Decrypt(ciphertext, masterKey []byte) ([]byte, error) {
+func Decrypt(ciphertext, masterKey, aad []byte) ([]byte, error) {
 	block, err := aes.NewCipher(masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate cipher block: %w", err)
@@ -52,10 +56,14 @@ func Decrypt(ciphertext, masterKey []byte) ([]byte, error) {
 	}
 
 	nonceSize := aesGCM.NonceSize()
-	if len(ciphertext) < nonceSize {
+	if len(ciphertext) < len(ciphertextVersion)+nonceSize {
 		return nil, fmt.Errorf("cipher is too short: %v", len(ciphertext))
 	}
+	if !bytes.Equal(ciphertext[:len(ciphertextVersion)], ciphertextVersion) {
+		return nil, fmt.Errorf("unsupported ciphertext version")
+	}
 
-	nonce, actualCiphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	return aesGCM.Open(nil, nonce, actualCiphertext, nil)
+	body := ciphertext[len(ciphertextVersion):]
+	nonce, actualCiphertext := body[:nonceSize], body[nonceSize:]
+	return aesGCM.Open(nil, nonce, actualCiphertext, aad)
 }

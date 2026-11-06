@@ -23,10 +23,21 @@ import (
 
 func TestReadCmd_Run(t *testing.T) {
 	now := time.Now()
+
+	const issuerID = "crl-read-issuer"
+	if _, err := testDB.ExecContext(testCtx, `INSERT INTO keys (id, name, algorithm, private_key_pem, public_key_pem) VALUES (?, ?, ?, ?, ?)`,
+		"crl-read-key", "crl-read-key", "ed25519", "dummy_priv", "dummy_pub"); err != nil {
+		t.Fatalf("failed to seed key: %v", err)
+	}
+	if _, err := testDB.ExecContext(testCtx, `INSERT INTO certificates (id, serial_number, common_name, type, key_id, skid, akid, not_before, not_after, certificate_pem, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		issuerID, "9001", "CRL Read Issuer", "CA", "crl-read-key", "crl-read-skid", "crl-read-akid", now, now.Add(time.Hour), "dummy_cert", "ACTIVE"); err != nil {
+		t.Fatalf("failed to seed issuer certificate: %v", err)
+	}
+
 	dbCRL, err := testQuerier.CreateCRL(testCtx, sqlc.CreateCRLParams{
 		Name:       "Read_CRL_Test",
 		CrlNumber:  5,
-		IssuerID:   1,
+		IssuerID:   issuerID,
 		ThisUpdate: now,
 		NextUpdate: now.Add(24 * time.Hour),
 		CrlPem:     "-----BEGIN X509 CRL-----\nTEST_PEM_DATA\n-----END X509 CRL-----",
@@ -47,7 +58,7 @@ func TestReadCmd_Run(t *testing.T) {
 		},
 		{
 			name:    "read non-existent CRL returns error",
-			cmd:     ReadCmd{ID: 999999},
+			cmd:     ReadCmd{ID: "999999"},
 			wantErr: true,
 		},
 	}

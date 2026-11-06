@@ -15,14 +15,34 @@
 package crypto
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
 	"time"
 )
 
+// PrivateKeyPEMType is the PEM label for pkit's internal encrypted key format.
+const PrivateKeyPEMType = "PKIT ENCRYPTED PRIVATE KEY"
+
+func privateKeyAAD(publicKeyPEM []byte) []byte {
+	h := sha256.New()
+	h.Write([]byte("pkit-private-key-v1:"))
+	h.Write(publicKeyPEM)
+	return h.Sum(nil)
+}
+
 // ReturnPrivPubPem marshals a key pair into an encrypted private key PEM and a
 // public key PEM.
 func ReturnPrivPubPem(privateKey any, publicKey any) ([]byte, []byte, error) {
+	pubBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal public key: %w", err)
+	}
+	pubPem, err := EncodeToPem(pubBytes, "PUBLIC KEY")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal private key: %w", err)
@@ -31,20 +51,11 @@ func ReturnPrivPubPem(privateKey any, publicKey any) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get master key from os keyring: %w", err)
 	}
-	privBytesBlob, err := Encrypt(privBytes, masterKey)
+	privBytesBlob, err := Encrypt(privBytes, masterKey, privateKeyAAD(pubPem))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encrypt private key: %w", err)
 	}
-	privBlobPem, err := EncodeToPem(privBytesBlob, "ENCRYPTED PRIVATE KEY")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pubBytes, err := x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal public key: %w", err)
-	}
-	pubPem, err := EncodeToPem(pubBytes, "PUBLIC KEY")
+	privBlobPem, err := EncodeToPem(privBytesBlob, PrivateKeyPEMType)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,16 +70,12 @@ func MarshalKeys(privKey, pubKey any) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal public key: %w", err)
 	}
-	privBlobBytes, err := EncryptPrivateKey(privKey)
+	pubPem, err := EncodeToPem(pubBytes, "PUBLIC KEY")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	privPem, err := EncodeToPem(privBlobBytes, "PRIVATE KEY")
-	if err != nil {
-		return nil, nil, err
-	}
-	pubPem, err := EncodeToPem(pubBytes, "PUBLIC KEY")
+	privPem, err := EncryptPrivateKey(privKey, pubPem)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -78,7 +85,7 @@ func MarshalKeys(privKey, pubKey any) ([]byte, []byte, error) {
 
 // ParseKeys decrypts and parses a stored private key PEM and public key PEM.
 func ParseKeys(privPem []byte, pubPem []byte) (any, any, error) {
-	decryptedPrivKey, err := DecryptPrivateKey(privPem)
+	decryptedPrivKey, err := DecryptPrivateKey(privPem, pubPem)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,7 +107,8 @@ func ParseKeys(privPem []byte, pubPem []byte) (any, any, error) {
 }
 
 // EncryptPrivateKey marshals and encrypts a private key using the master key.
-func EncryptPrivateKey(priv any) ([]byte, error) {
+// publicKeyPEM binds the ciphertext to the matching public key.
+func EncryptPrivateKey(priv any, publicKeyPEM []byte) ([]byte, error) {
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal private key: %w", err)
@@ -111,16 +119,16 @@ func EncryptPrivateKey(priv any) ([]byte, error) {
 		return nil, err
 	}
 
-	encryptedKey, err := Encrypt(privBytes, masterKey)
+	encryptedKey, err := Encrypt(privBytes, masterKey, privateKeyAAD(publicKeyPEM))
 	if err != nil {
 		return nil, err
 	}
 
-	return encryptedKey, nil
+	return EncodeToPem(encryptedKey, PrivateKeyPEMType)
 }
 
 // DecryptPrivateKey decrypts an encrypted private key PEM using the master key.
-func DecryptPrivateKey(privPem []byte) ([]byte, error) {
+func DecryptPrivateKey(privPem, publicKeyPEM []byte) ([]byte, error) {
 	privKey, err := DecodeToPem(privPem)
 	if err != nil {
 		return nil, err
@@ -131,7 +139,7 @@ func DecryptPrivateKey(privPem []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	decryptedPrivKey, err := Decrypt(privKey, masterKey)
+	decryptedPrivKey, err := Decrypt(privKey, masterKey, privateKeyAAD(publicKeyPEM))
 	if err != nil {
 		return nil, err
 	}
