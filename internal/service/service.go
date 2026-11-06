@@ -127,7 +127,7 @@ func (s *Service) buildChain(ctx context.Context, current *x509.Certificate) ([]
 
 	workingCert := current
 	const maxChainDepth = 10
-	for depth := 0; depth < maxChainDepth; depth++ {
+	for depth := range maxChainDepth {
 		if workingCert.Subject.String() == workingCert.Issuer.String() {
 			if depth == 0 {
 				return nil, fmt.Errorf("failed to build chain. Provided Certificate itself a Root CA Certificate")

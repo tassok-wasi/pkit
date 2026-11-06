@@ -62,7 +62,8 @@ type ExportKeyRequest struct {
 // createWithIDRetry retries inserts when the generated short ID collides.
 func createWithIDRetry[T any](table string, fn func() (T, error)) (T, error) {
 	var zero T
-	for attempt := 0; attempt < 5; attempt++ {
+	for attempt := range 5 {
+		_ = attempt
 		value, err := fn()
 		if err == nil {
 			return value, nil

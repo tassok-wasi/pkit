@@ -445,23 +445,25 @@ func (s *Service) ExportCSR(ctx context.Context, req ExportRequest) (string, err
 
 // pubKeysEqual compares two public keys for cryptographic equality.
 func pubKeysEqual(a, b any) bool {
-	rsaA, okA := a.(*rsa.PublicKey)
-	rsaB, okB := b.(*rsa.PublicKey)
-	if okA && okB {
-		return rsaA.N.Cmp(rsaB.N) == 0 && rsaA.E == rsaB.E
+	switch keyA := a.(type) {
+	case *rsa.PublicKey:
+		keyB, ok := b.(*rsa.PublicKey)
+		return ok && keyA.N.Cmp(keyB.N) == 0 && keyA.E == keyB.E
+	case *ecdsa.PublicKey:
+		keyB, ok := b.(*ecdsa.PublicKey)
+		if !ok || keyA.Curve != keyB.Curve {
+			return false
+		}
+		derA, errA := x509.MarshalPKIXPublicKey(keyA)
+		derB, errB := x509.MarshalPKIXPublicKey(keyB)
+		if errA != nil || errB != nil {
+			return false
+		}
+		return bytes.Equal(derA, derB)
+	case ed25519.PublicKey:
+		keyB, ok := b.(ed25519.PublicKey)
+		return ok && bytes.Equal(keyA, keyB)
+	default:
+		return false
 	}
-
-	ecdsaA, okA := a.(*ecdsa.PublicKey)
-	ecdsaB, okB := b.(*ecdsa.PublicKey)
-	if okA && okB {
-		return ecdsaA.Curve == ecdsaB.Curve && ecdsaA.X.Cmp(ecdsaB.X) == 0 && ecdsaA.Y.Cmp(ecdsaB.Y) == 0
-	}
-
-	edA, okA := a.(ed25519.PublicKey)
-	edB, okB := b.(ed25519.PublicKey)
-	if okA && okB {
-		return bytes.Equal(edA, edB)
-	}
-
-	return false
 }

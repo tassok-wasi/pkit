@@ -498,7 +498,7 @@ func serialRevoked(crl *x509.RevocationList, serial *big.Int) bool {
 			return true
 		}
 	}
-	for _, entry := range crl.RevokedCertificates {
+	for _, entry := range crl.RevokedCertificateEntries {
 		if entry.SerialNumber.Cmp(serial) == 0 {
 			return true
 		}
